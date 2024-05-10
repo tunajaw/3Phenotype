@@ -327,8 +327,9 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
 
             # try to get the closet event time label from state label 
             # [TODO] directly fetch label from events
-            state_label_red = align(
-                state_label[:, :, None], event_time, state_time)  # [B,L,1]
+            state_label_red = state_label[:, :, None]
+            # state_label_red = align(
+            #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
             
             state_label_loss, _ = Utils.state_label_loss(
                 state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun)
@@ -475,8 +476,9 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             # label prediction
             if hasattr(model, 'pred_label') and (state_label is not None):
 
-                state_label_red = align(
-                    state_label[:, :, None], event_time, state_time)  # [B,L,1]
+                # state_label_red = align(
+                #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
+                state_label_red = state_label[:, :, None]
                 # state_label_red = state_label.bool().int()[:,:,None] # [B,L,1]
                 state_label_loss, (y_state_pred, y_state_true, y_state_score) = Utils.state_label_loss(
                     state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun)

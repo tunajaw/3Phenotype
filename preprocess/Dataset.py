@@ -46,8 +46,8 @@ class TEDA(torch.utils.data.Dataset):
             
 
         if self.have_label:        
-            self.label = [[elem['label'] for elem in inst] for inst in dict_state['state']]
-            self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in dict_state['state']]
+            self.label = [[elem['label'] for elem in inst] for inst in data_event]
+            self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in data_event]
 
 
         if self.have_demo:        

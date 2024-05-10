@@ -44,23 +44,23 @@ do
 
         # DA__base (DAM in Table 5)
         echo "DAM" 
-        python Main.py  $HPs $COEFS $SETTING $COMMON $DA__base -user_prefix "[$USER_PREFIX-DA__base-concat]" -time_enc concat -wandb_tag RD75 > DA.log 2>&1
+        python Main.py  $HPs $COEFS $SETTING $COMMON $DA__base -user_prefix "[$USER_PREFIX-DA__base-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/DA.log 2>&1
 
         # TEDA__none (TEE+DAM in Table 5)
         echo "TEE+DAM"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__none -user_prefix "[$USER_PREFIX-TEDA__none-concat]" -time_enc concat -wandb_tag RD75 > TEDA.log 2>&1
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__none -user_prefix "[$USER_PREFIX-TEDA__none-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA.log 2>&1
 
         # TEDA__nextmark (TEE+DAM (AE loss) in Table 5)
         echo "TEE+DAM"            
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75 > TEDA_AE.log 2>&1
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_AE.log 2>&1
 
         # TEDA__pp_single_mark (TEE+DAM (single) in Table 5)     
         echo "TEE+DAM (single)"                   
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75 > TEDA_single.log 2>&1  
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_single.log 2>&1  
 
         # TEDA__pp_ml (TEE+DAM (ML) in Table 5)  
         echo "TEE+DAM (ML)"            
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat]" -time_enc concat -wandb_tag RD75 > TEDA_ML.log 2>&1
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML.log 2>&1
 
 
 done
@@ -79,17 +79,17 @@ do
         # TEDA__nextmark ([TEE with AE] + DAM in Table 5)
         echo "[TEE with AE] + DAM "
         TL="-transfer_learning -freeze TE -tl_tag RD74-nextmark3"
-        python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75 > TEAE_DA.log 2>&1
+        python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEAE_DA.log 2>&1
 
         # TEDA__pp_single_mark ([TEE with PP(single)] + DAM in Table 5)
         echo "[TEE with PP(single)] + DAM "
         TL="-transfer_learning -freeze TE -tl_tag RD74-single3"
-        python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75 > TEsingle_DA.log 2>&1
+        python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEsingle_DA.log 2>&1
 
         # TEDA__pp_ml ([TEE with PP(ML)] + DAM in Table 5)
         TL="-transfer_learning -freeze TE -tl_tag RD74-ml3"
         echo "[TEE with PP(ML)] + DAM "
-        python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat]" -time_enc concat -wandb_tag RD75 > TEML.log 2>&1
+        python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEML.log 2>&1
 
 
 done

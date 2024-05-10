@@ -1037,7 +1037,9 @@ def sahp_log_likelihood_test(model, embed_info, seq_times, seq_types,n_mc_sample
 # [TODO] multi-class classification loss 
 def state_label_loss(state_label,prediction, non_pad_mask, loss_fun):
     # prediction [B,1], state_label [B,L,1]
-
+    # print(f"state label shape: {state_label.shape}")
+    # print(f"prediction shape: {prediction.shape}")
+    
 
     lens = non_pad_mask.squeeze(-1).sum(-1).long()
     

@@ -7,6 +7,7 @@
         --- time_since_start (int)
         --- type_event (np.array(dtype=int32), len=K, val=0|1)
         --- mark_event (np.array(dtype=int32), len=K, val=0|1) unk (observe: identical to type_event)
+        --- label: (int) label (moved from *_state)
     -- test : empty
     -- num_marks : (int) # of event types (K)
     -- dict_map_events : (dict) 
@@ -22,7 +23,7 @@
         --- abs_time: (float) unk
         --- value: (float) type event value
         --- mod: (int) cont. type event id
-        --- label: (int) label?
+        ~~--- label: (int) label (original, moved to train/test/dev now)~~
     -- dict_map_states : (dict) 
         --- key: cont. event type
         --- val: cont. event type id
