@@ -6,6 +6,7 @@ __pycache__/
 
 wandb
 .vscode
+.log
 
 # "distilbert-base-uncased-finetuned-imdb/"
 # test-trainer/
@@ -13,7 +14,7 @@ wandb
 log.txt
 
 jup_res.ipynb
-wandb/debug-cli.hokarami.log
+wandb/
 
 local/
 .local/
@@ -23,7 +24,6 @@ saved_models/
 distilbert-base-uncased-finetuned-imdb/
 ehr_bert_data/
 
-Hojjat/
 hf/
 ehr_states_llm_data/
 codeparrot-ds/

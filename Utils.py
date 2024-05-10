@@ -1034,7 +1034,7 @@ def sahp_log_likelihood_test(model, embed_info, seq_times, seq_types,n_mc_sample
     return example
 
 
-
+# [TODO] multi-class classification loss 
 def state_label_loss(state_label,prediction, non_pad_mask, loss_fun):
     # prediction [B,1], state_label [B,L,1]
 

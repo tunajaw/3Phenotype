@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -275,7 +276,7 @@ class CIF_thp(nn.Module):
         self.n_cifs = n_cifs
 
         self.n_mc_samples = 20
-        self.mod == mod_CIF
+        self.mod = mod_CIF
 
         # THP decoder
         # parameter for the weight of time difference

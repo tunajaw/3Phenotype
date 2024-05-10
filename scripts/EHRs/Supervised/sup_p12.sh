@@ -5,7 +5,7 @@
 USER_PREFIX=H70-
 
 # address of data folder
-PRE="/mlodata1/hokarami/tedam"
+PRE="./dataset/"
 DATA_NAME="p12"
 
 # hyperparameters. Use `python Main.py -h` for more information
@@ -70,15 +70,15 @@ do
 
 
         # TEDA__nextmark ([TEE with AE] + DAM in Table 5)
-        TL="-transfer_learning DO -freeze TE -tl_tag RD74-nextmark3"
+        TL="-transfer_learning -freeze TE -tl_tag RD74-nextmark3"
         python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75
 
         # TEDA__pp_single_mark ([TEE with PP(single)] + DAM in Table 5)
-        TL="-transfer_learning DO -freeze TE -tl_tag RD74-single3"
+        TL="-transfer_learning -freeze TE -tl_tag RD74-single3"
         python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75    
 
         # TEDA__pp_ml ([TEE with PP(ML)] + DAM in Table 5)
-        TL="-transfer_learning DO -freeze TE -tl_tag RD74-ml3"
+        TL="-transfer_learning -freeze TE -tl_tag RD74-ml3"
         python Main.py  $TL $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat]" -time_enc concat -wandb_tag RD75 
 
 

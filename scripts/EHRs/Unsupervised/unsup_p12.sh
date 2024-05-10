@@ -5,7 +5,7 @@
 USER_PREFIX=RD74-
 
 # address of data folder
-PRE="/mlodata1/hokarami/tedam"
+PRE="./dataset/"
 DATA_NAME="p12"
 
 # hyperparameters. Use `python Main.py -h` for more information
@@ -51,7 +51,7 @@ TE__pp_ml="-event_enc 1          -mod ml        -next_mark 1     -mark_detach 1 
 
 
 
-
+i_diag=1
 
 
 ############################################################ EXPERIMENTS
@@ -64,26 +64,26 @@ do
         # each of the following lines corresponds to a row in Table 4
 
         # TE__pp_single_mark
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_single_mark -user_prefix "[$USER_PREFIX-TE__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_single_mark -user_prefix "[$USER_PREFIX-TE__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > TE_single.log 2>&1
         # TEDA__pp_single_mark
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > TEDA_single.log 2>&1
 
 
 
 
 
         # TE__pp_ml
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_ml -user_prefix "[$USER_PREFIX-TE__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_ml -user_prefix "[$USER_PREFIX-TE__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > TE_ML.log 2>&1
         # TEDA__pp_ml
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > TEDA_ML.log 2>&1
 
 
 
 
         # TE__nextmark
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__nextmark -user_prefix "[$USER_PREFIX-TE__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__nextmark -user_prefix "[$USER_PREFIX-TE__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > TE_AE.log 2>&1
         # TEDA__nextmark
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > TEDA_AE.log 2>&1
 
 
 

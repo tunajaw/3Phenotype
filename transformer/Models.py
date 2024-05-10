@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import transformer.Constants as Constants
 from transformer.Layers import EncoderLayer
 
-from transformer.Modules import  Predictor, CIF_sahp, MLP_state, CumulativeSetAttentionLayer
+from transformer.Modules import  Predictor, CIF_sahp, MLP_state, CumulativeSetAttentionLayer, CIF_thp
 
 def get_non_pad_mask(seq):
     """ Get the non-padding positions. """
@@ -781,6 +781,7 @@ class TEEDAM(nn.Module):
 
         # sample final label ************************************************************
         if label_config:
+            # [TODO] change the # of predict types 
             self.pred_label = Predictor(self.d_con, 1)
             self.sample_detach = label_config['sample_detach']
 

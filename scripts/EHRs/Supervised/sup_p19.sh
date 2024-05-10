@@ -5,8 +5,8 @@
 USER_PREFIX=H70-
 
 # address of data folder
-PRE="/mlodata1/hokarami/tedam"
-DATA_NAME="p12"
+PRE="./dataset"
+DATA_NAME="p19"
 
 # hyperparameters. Use `python Main.py -h` for more information
 COMMON=" -demo -data_label multilabel  -epoch 50 -per 100    -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "

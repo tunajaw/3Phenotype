@@ -31,14 +31,18 @@ from dotenv import load_dotenv
 
 # Project is specified by <entity/project-name>
 def dl_runs(all_runs, selected_tag=None):
-
+    print(f"There are totally {len(all_runs)} runs.")
     summary_list, config_list, name_list, path_list = [], [], [], []
     for run in all_runs:
-
+        # print(f"run: {run}")
+        # print(f"run smaary: {run.summary}")
+        # print(f"config items: {run.config.items()}")
+        print(f"select_tag: {selected_tag}, run tags:{run.tags}")
         if (selected_tag not in run.tags) and (selected_tag is not None):
             continue
         # .summary contains the output keys/values for metrics like accuracy.
         #  We call ._json_dict to omit large files
+
         summary_list.append(run.summary._json_dict)
 
         # .config contains the hyperparameters.
@@ -60,7 +64,7 @@ def dl_runs(all_runs, selected_tag=None):
 
     })
 
-    # runs_df.to_csv("project.csv")
+    runs_df.to_csv("project.csv")
     return runs_df
 
 
@@ -321,9 +325,11 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
         if hasattr(model, 'pred_label'):
 
 
-
+            # try to get the closet event time label from state label 
+            # [TODO] directly fetch label from events
             state_label_red = align(
                 state_label[:, :, None], event_time, state_time)  # [B,L,1]
+            
             state_label_loss, _ = Utils.state_label_loss(
                 state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun)
 
@@ -424,6 +430,15 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             total_num_pred += non_pad_mask.sum().item()
             masks_list.append(
                 non_pad_mask[:, 1:].flatten().bool().detach().cpu())  # [*, C]
+            
+            # print(f"enc_out: {enc_out.shape}")
+            # print(f"event_time: {event_time.shape}")
+            # print(f"event_type: {event_type.shape}")
+            # print(f"non_pad_mask: {non_pad_mask.shape}")
+
+            # test: if only have 1 sample(?), then pass this data
+            if enc_out.shape[1] < 2:
+                continue
 
             # CIF decoder
             if hasattr(model, 'event_decoder'):
@@ -473,6 +488,8 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                     y_state_true).detach().cpu())  # [*]
                 y_state_score_list.append(torch.flatten(
                     y_state_score).detach().cpu())  # [*] it is binary
+                
+            # print("pass an epoch")
 
     masks = torch.cat(masks_list)  # [*]
 
@@ -655,7 +672,7 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
     write_to_summary(dict_metrics_test, opt, i_epoch=0, prefix='Test-')
 
 
-    best_metric = -100 # for early stopping
+    best_metric = -1000000 # for early stopping
     # Initialize the early stopping counter
     early_stopping_counter = 0
 
@@ -849,7 +866,7 @@ def options():
                         help='split number')
 
     # logging args
-    # parser.add_argument('-pos_alpha', type=float, default=1.0)
+    parser.add_argument('-pos_alpha', type=float, default=1.0)
 
     # General Config
     parser.add_argument('-epoch', type=int, default=40)
@@ -923,7 +940,7 @@ def options():
     parser.add_argument(
         '-mod', type=str, choices=['single', 'mc', 'ml', 'none'], default='single', help='LOSS TYPE for CIFs')
     parser.add_argument('-int_dec', type=str, choices=[
-                        'thp', 'sahp'], default='sahp', help='specify the inteesity decoder')
+                        'thp', 'sahp'], default='sahp', help='specify the intensity decoder')
     parser.add_argument('-w_event', type=float, default=1, help="weight for event decoder loss")
 
     # marks
@@ -1347,14 +1364,15 @@ def config(opt, justLoad=False):
 
 
 def load_module(model, checkpoint, modules, to_freeze=True):
-
+    print(f"len of modules:{len(modules)}")
     for module in modules:
-
+        print(len(module))
         b = [x for x in checkpoint['model_state_dict'].keys()
              if x.startswith(module)]
         od = OrderedDict()
         for k in b:
-            od[k[(len(module)+1):]] = checkpoint['model_state_dict'][k]
+            od[k] = checkpoint['model_state_dict'][k]
+            # od[k[(len(module)+1):]] = checkpoint['model_state_dict'][k]
 
         # model.encoder.load_state_dict(od)
         getattr(model, module).load_state_dict(od, strict=False)
@@ -1367,7 +1385,7 @@ def load_module(model, checkpoint, modules, to_freeze=True):
 def main():
     """ Main function. """
 
-    print(sys.argv)
+    # print(sys.argv)
 
     opt = options()  # if run from command line it process sys.argv
 
@@ -1380,7 +1398,7 @@ def main():
         # wandb.tensorboard.patch(root_logdir=opt.run_path, pytorch=True)
         # sync_tensorboard=True,
         wandb.init(config=opt, project=opt.wandb_project,
-                    entity="hokarami", name=opt.run_name, tags=[opt.wandb_tag],)
+                    name=opt.run_name, tags=[opt.wandb_tag],)
         # wandb.config.update(opt.TE_config)
         # wandb.config.update(opt.DAMconfig)
         # opt.wandb_dir = wandb.run.dir
@@ -1409,12 +1427,12 @@ def main():
 
     )
     model.to(opt.device)
-
-    if opt.transfer_learning != '':
+    print(f"transfer_learning:{opt.transfer_learning}")
+    if opt.transfer_learning:
 
         # transfer learning
         api = wandb.Api()
-        runs = api.runs("hokarami/TEEDAM_unsupervised")
+        runs = api.runs("tunajaw_/TEEDAM_unsupervised")
         df_filt = dl_runs(runs, selected_tag=opt.tl_tag)
 
         df_config = pd.DataFrame(
@@ -1423,8 +1441,8 @@ def main():
             [{k: v for k, v in x.items()} for x in df_filt.summary])
         df_path = df_filt.path.apply(lambda x: '/'.join(x))
         df = pd.concat([df_config, df_summary, df_path], axis=1)
-
-        q = (df['dataset'] == opt.dataset) & (df['setting'] == opt.setting) & (df['INPUT'] == opt.INPUT) & (
+        print(f"keys are: {df.keys()}")
+        q = (df['setting'] == opt.setting) & (df['INPUT'] == opt.INPUT) & (
             df['diag_offset'] == opt.diag_offset) & (df['test_center'] == opt.test_center) & (df['split'] == opt.split)
 
         if q.sum() != 1:
@@ -1433,6 +1451,7 @@ def main():
         else:
             # sth like 'hokarami/TEEDAM_unsupervised/8bhh70yz'
             run_path = df.loc[q]['path'].values[0]
+            print(f"run_path:{run_path}")
 
             run = api.run(run_path)
             for file in run.files():

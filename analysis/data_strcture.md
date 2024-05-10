@@ -1,0 +1,33 @@
+- train
+    -- hospital : (series[float64]) unk, seems to be useless
+    -- dim_process : (int) # of event types if mod=='mc' (1 in ml setting)
+    -- dev : empty
+    -- train : time series data (List[List[dict]])
+        --- time_since_last_event (int)
+        --- time_since_start (int)
+        --- type_event (np.array(dtype=int32), len=K, val=0|1)
+        --- mark_event (np.array(dtype=int32), len=K, val=0|1) unk (observe: identical to type_event)
+    -- test : empty
+    -- num_marks : (int) # of event types (K)
+    -- dict_map_events : (dict) 
+        --- key: event type
+        --- val: event type id
+    -- pos_weight (List) pos_weight of calculating BCEwithLogitLoss 
+- test
+- dev
+- *_state : for DAM module
+    -- hospital : (series[float64]) unk
+    -- num_states : (int) # of cont. event types (K')
+    -- state : (List[List[dict]])
+        --- abs_time: (float) unk
+        --- value: (float) type event value
+        --- mod: (int) cont. type event id
+        --- label: (int) label?
+    -- dict_map_states : (dict) 
+        --- key: cont. event type
+        --- val: cont. event type id
+    -- num_demos : (int) # of static datas
+    -- demo : (List[List[float]]) val. of static datas
+    -- dict_map_demos: (dict) 
+        --- key: static data type
+        --- val: static data type id

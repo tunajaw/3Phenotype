@@ -5,7 +5,7 @@
 USER_PREFIX=RD74-
 
 # address of data folder
-PRE="/mlodata1/hokarami/tedam"
+PRE="./dataset/"
 DATA_NAME="p19"
 
 # hyperparameters. Use `python Main.py -h` for more information
@@ -53,7 +53,7 @@ TE__pp_ml="-event_enc 1          -mod ml        -next_mark 1     -mark_detach 1 
 
 
 
-
+i_diag=1
 
 ############################################################ EXPERIMENTS
 

@@ -5,7 +5,7 @@ import torch.utils.data
 from transformer import Constants
 from torch.utils.data import WeightedRandomSampler
 
-
+import random
 
 
 
@@ -105,23 +105,30 @@ def pad_type(insts):
     """ Pad the instance to the max seq length in batch. """
 
     max_len = max(len(inst) for inst in insts)
+    # if random.random() > 0.2:
+    #     print(insts)
+    # else:
+    #     assert 0
 
-    
+    # catch empty array (no exam or ccs)
     # if multilabel:
-    if isinstance(insts[0][0],np.ndarray):
-        vec_len = len(insts[0][0])
-        batch_seq = np.stack([
-            np.concatenate([
-                inst,
-                np.zeros((   max_len - len(inst) , len(inst[0])))
-            ])
-            for inst in insts
-        ]) #[B,L,K] K dimension of encoding
-    else: # then multiclass
-        batch_seq = np.array([
-            inst + [Constants.PAD] * (max_len - len(inst))
-            for inst in insts])
-
+    for idx in range(len(insts)):
+        if len(insts[idx]):
+            if isinstance(insts[idx][0], np.ndarray):
+                vec_len = len(insts[0][0])
+                batch_seq = np.stack([
+                    np.concatenate([
+                        inst,
+                        np.zeros((   max_len - len(inst) , len(inst[0])))
+                    ])
+                    for inst in insts
+                ]) #[B,L,K] K dimension of encoding
+            else: # then multiclass
+                batch_seq = np.array([
+                    inst + [Constants.PAD] * (max_len - len(inst))
+                    for inst in insts])
+            
+            break
 
     return torch.tensor(batch_seq, dtype=torch.long)
 
