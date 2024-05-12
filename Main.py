@@ -644,11 +644,13 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             'pred_label/AUPRC': metrics.average_precision_score(y_state_true, y_state_score),
             'pred_label/f1-binary': metrics.f1_score(y_state_true, y_state_pred, average='binary', zero_division=0),
 
-            'pred_label/loss': total_label_state/total_num_event,
+            # 'pred_label/loss': total_label_state/total_num_event,
             'pred_label/recall-binary': metrics.recall_score(y_state_true, y_state_pred, average='binary', zero_division=0),
             'pred_label/precision-binary': metrics.precision_score(y_state_true, y_state_pred, average='binary', zero_division=0),
 
             'pred_label/ACC': metrics.accuracy_score(y_state_true, y_state_pred),
+
+            'pred_label/MCC': metrics.matthews_corrcoef(y_state_true, y_state_pred),
 
             'pred_label/PR_curve': plt,
 
