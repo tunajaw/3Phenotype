@@ -29,25 +29,25 @@ COEFS="-w_sample_label 100  -w_time 1 -w_event 1"
 ############################################################ Possible TEE loss
 
 # DAM + TEE with AE loss
-TEDA__nextmark="-event_enc 1    -state          -mod none      -next_mark 1     -mark_detach 0      -sample_label 1"
+TEDA__nextmark="-event_enc 1    -state          -mod none      -next_mark 1     -mark_detach 0      -sample_label 2"
 
 # DAM + TEE with PP(single)(equation 4 in the paper)
-TEDA__pp_single_mark="-event_enc 1    -state          -mod single    -next_mark 1     -mark_detach 0      -sample_label 1"
+TEDA__pp_single_mark="-event_enc 1    -state          -mod single    -next_mark 1     -mark_detach 0      -sample_label 2"
 
 # DAM + TEE with PP(ML)(equation 3 in the paper)
-TEDA__pp_ml="-event_enc 1    -state          -mod ml        -next_mark 1     -mark_detach 1      -sample_label 1"
+TEDA__pp_ml="-event_enc 1    -state          -mod ml        -next_mark 1     -mark_detach 1      -sample_label 2"
 
 
 
 
 # TEE with AE loss
-TE__nextmark="-event_enc 1          -mod none      -next_mark 1     -mark_detach 0      -sample_label 1"
+TE__nextmark="-event_enc 1          -mod none      -next_mark 1     -mark_detach 0      -sample_label 2"
 
 # TEE with PP(single)(equation 4 in the paper)
-TE__pp_single_mark="-event_enc 1          -mod single    -next_mark 1     -mark_detach 0      -sample_label 1"
+TE__pp_single_mark="-event_enc 1          -mod single    -next_mark 1     -mark_detach 0      -sample_label 2"
 
 # TEE with PP(ML)(equation 3 in the paper)
-TE__pp_ml="-event_enc 1          -mod ml        -next_mark 1     -mark_detach 1      -sample_label 1"
+TE__pp_ml="-event_enc 1          -mod ml        -next_mark 1     -mark_detach 1      -sample_label 2"
 
 
 
