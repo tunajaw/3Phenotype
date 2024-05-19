@@ -781,8 +781,8 @@ class TEEDAM(nn.Module):
 
         # sample final label ************************************************************
         if label_config:
-            # [TODO] change the # of predict types 
-            self.pred_label = Predictor(self.d_con, 1)
+            # [TODO] change the # of predict types
+            self.pred_label = Predictor(self.d_con, label_config['label_class'])
             self.sample_detach = label_config['sample_detach']
 
         # Prediction of next time and type ***************************
@@ -896,6 +896,7 @@ class TEEDAM(nn.Module):
         if hasattr(self, 'pred_label'):
 
             lens = non_pad_mask.squeeze(-1).sum(-1).long()
+            # [TODO] use every time 
             temp = torch.unbind(enc)
             # temp = [temp[lens[i]] for i in range (len(temp))]
             enc_last = torch.stack([temp[i][lens[i].item() - 1]

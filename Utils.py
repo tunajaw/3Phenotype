@@ -1035,26 +1035,41 @@ def sahp_log_likelihood_test(model, embed_info, seq_times, seq_types,n_mc_sample
 
 
 # [TODO] multi-class classification loss 
-def state_label_loss(state_label,prediction, non_pad_mask, loss_fun):
-    # prediction [B,1], state_label [B,L,1]
+def state_label_loss(state_label,prediction, non_pad_mask, loss_fun, cuda=True, num_classes=1):
+
+    # prediction [B,L,n_cif], state_label [B,L,1], non_pad_mask:[B,L]
     # print(f"state label shape: {state_label.shape}")
     # print(f"prediction shape: {prediction.shape}")
-    
+    # print(f"non_pad_mask: {non_pad_mask.shape}")
+    # [TOCHECK]: variable-length tensor: might * non_pad_mask?
 
-    lens = non_pad_mask.squeeze(-1).sum(-1).long()
     
-    # temp = torch.unbind(prediction)
-    # prediction_last = torch.stack([temp[i][lens[i].item()-1] for i in range (len(temp))],0)
-    prediction_last = prediction[np.arange(prediction.shape[0])   ,  lens-1,   :] #[B,1]
-    y_true = state_label[np.arange(state_label.shape[0])   ,  lens-1,   :] # [B, 1]
-    y_pred = prediction_last.gt(0).type(torch.int).squeeze(-1) # [B]
-    y_score = nn.Sigmoid()(prediction_last.squeeze(-1)) # [B]
+    non_pad_mask_total = non_pad_mask.squeeze(-1).ravel().long()
+    y_pred = prediction.flatten().gt(0).type(torch.int)[non_pad_mask_total == 1] # all valid guesses [G]
+    y_true = state_label.flatten()[non_pad_mask_total == 1] # [G]
+    y_score = nn.Sigmoid()(y_pred) # [G]
 
-    w = y_true.sum()*0+1
-    w_pos = y_true.sum()*0+0.2
+    # lens = non_pad_mask.squeeze(-1).sum(-1).long()
+    # range_tensor = torch.arange(prediction.shape[1]).unsqueeze(0).expand(prediction.shape[0], -1)
+    # if cuda:
+    #     range_tensor = range_tensor.to('cuda')
+    # valid_mask = range_tensor < lens.unsqueeze(-1)
+    # y_true = state_label * valid_mask.unsqueeze(-1)
+    # y_pred = (prediction * valid_mask.unsqueeze(-1)).gt(0).type(torch.int).squeeze(-1)
+    # y_score = nn.Sigmoid()(y_pred.squeeze(-1)) # [B]
+
+    # lens = non_pad_mask.squeeze(-1).sum(-1).long()
+    # prediction_last = prediction[np.arange(prediction.shape[0])   ,  :lens-1,   :] #[B,1]
+    # y_true = state_label[np.arange(state_label.shape[0])   ,  :lens-1,   :] # [B, 1]
+    # y_pred = prediction_last.gt(0).type(torch.int).squeeze(-1) # [B]
+    # y_score = nn.Sigmoid()(prediction_last.squeeze(-1)) # [B]
+    # print(f"y_trues:{y_true.shape}")
+    # print(f"y_pred:{y_pred.shape}")
+    # print(f"y_score:{y_score.shape}")
+
     # loss = nn.BCEWithLogitsLoss(weight=w, reduction='none',pos_weight=w_pos)(prediction_last, y_true.float()) 
-    loss = loss_fun(prediction_last, y_true.float()) 
-
+    loss = loss_fun(y_pred.float(), y_true.float()) 
+    
 
 
     # state_label.sum(1).bool()

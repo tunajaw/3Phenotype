@@ -28,15 +28,29 @@
         sample detach: unsup only, sup no detach
     - [] find out why training epoch in wandb would break in some settings
     - [] multi-class labeling
+        - ~~num_types~~
+        - CIFs [v]
+        - current: only use last predictions as eval. metric. Find out if can directly use all y_labels (yes!)
+        - Predcitor output (final layer of Predictor activation) 
     - [-] add HPO metric
         deprecated? since it doesn't consider type error loss, just considering time loss (like DTW)
+        predict next event seems to be not important
     - [] Think about whole training process
 
 
 * experiment results
-    - unsupervised: `TEDA_nextmark` and `TE_nextmark are trainable (only 1 binary CIF instensity) 
-        * valid prec_label MCC: 0.4065/0.3368
-    - supervised: only `TEDA_none` is trainable (AE loss)
-        * valid pred_label MCC: 0.362
+    - only predict last event (binary)
+        - unsupervised: `TEDA_singlemark` and `TE_nextmark` are trainable (only 1 binary CIF instensity) 
+            * valid prec_label MCC: 0.4065 / 0.3368
+        - supervised: only `TEDA_none` is trainable (AE loss) (>> two types of `TEDA_nextmark`)
+            * valid pred_label MCC: 0.362/ 0.086
+    - predict all event (binary)
+        - all of them are like piece of shit :(
 
 * consider more biomarkers
+
+* report
+    - typo: 俞鋒學長的 architecture 中 C = {0, ..., L}
+    - Q: motivation of changing encoder, ex. 不用補值, ... etc?
+    - Q: PRED 的時機與原因
+    - Q: 資料篩選 dataflow

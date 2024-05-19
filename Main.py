@@ -321,18 +321,17 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
             temp = sse*opt.w_time
             log_loss['loss/pred_next_time'] += temp.item()
             total_loss.append(temp)
-
+        # [TOCHECK] multi-class prediction
         if hasattr(model, 'pred_label'):
 
 
             # try to get the closet event time label from state label 
-            # [TODO] directly fetch label from events
             state_label_red = state_label[:, :, None]
             # state_label_red = align(
             #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
             
             state_label_loss, _ = Utils.state_label_loss(
-                state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun)
+                state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, cuda=opt.cuda)
 
             temp = state_label_loss*opt.w_sample_label
             log_loss['loss/pred_label'] += temp.item()  # /event_time.shape[0]
@@ -442,6 +441,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 continue
 
             # CIF decoder
+            # [TOCHECK] 
             if hasattr(model, 'event_decoder'):
                 log_sum, integral_ = model.event_decoder(
                     enc_out, event_time, event_type, non_pad_mask)
@@ -474,6 +474,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 total_time_sse_norm += sse_norm.item()
 
             # label prediction
+            # [TODO] multi-class prediction
             if hasattr(model, 'pred_label') and (state_label is not None):
 
                 # state_label_red = align(
@@ -481,7 +482,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 state_label_red = state_label[:, :, None]
                 # state_label_red = state_label.bool().int()[:,:,None] # [B,L,1]
                 state_label_loss, (y_state_pred, y_state_true, y_state_score) = Utils.state_label_loss(
-                    state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun)
+                    state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, opt.cuda)
 
                 # total_loss.append(state_label_loss*opt.w_sample_label)
                 y_state_pred_list.append(torch.flatten(
@@ -546,8 +547,8 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
 
             })
-
-            if hasattr(model, 'event_decoder') and model.event_decoder.n_cifs == n_classes:
+            # [TOCHECK]
+            if hasattr(model, 'event_decoder') and opt.mod == 'ml':#model.event_decoder.n_cifs == n_classes:
 
                 y_event_score = (np.concatenate(y_event_score_list)[masks, :])
 
@@ -571,7 +572,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             cm = metrics.confusion_matrix(y_true, y_pred)
             cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
 
-            if hasattr(model, 'event_decoder') and model.event_decoder.n_cifs == n_classes:
+            if hasattr(model, 'event_decoder') and opt.mod == 'ml': #model.event_decoder.n_cifs == n_classes:
 
                 y_event_score = (np.concatenate(y_event_score_list)[masks, :])
                 y_event_score = y_event_score/y_event_score.sum(1)[:, None]
@@ -962,7 +963,7 @@ def options():
     parser.add_argument('-w_time', type=float, default=1.0, help="weight for time prediction loss")
 
     # final sample label
-    
+    parser.add_argument('-label_class', type=int, default=1, help='number of classes of the label')
     parser.add_argument('-sample_label',  type=int,
                         choices=[0, 1, 2], default=0, help='consider labels for supervised learning task? 0: No, 1: Yes, 2) Yes, but detach the prediction head (do not update DAM, TEE)')
     parser.add_argument('-w_pos_label', type=float, default=1.0, help="weight for positive labels in BCE loss.")
@@ -1344,12 +1345,13 @@ def config(opt, justLoad=False):
         opt.demo_config['d_demo'] = 4
 
     opt.CIF_config = {}
+    # [TOCHECK] multi-class label
     if opt.mod != 'none':
         opt.CIF_config['mod'] = opt.mod
         opt.CIF_config['type'] = opt.int_dec
 
         if opt.CIF_config['mod'] == 'single':
-            opt.CIF_config['n_cifs'] = 1
+            opt.CIF_config['n_cifs'] = opt.label_class
         else:
             opt.CIF_config['n_cifs'] = opt.num_marks
 
@@ -1360,6 +1362,7 @@ def config(opt, justLoad=False):
     opt.next_time_config = True
 
     opt.label_config = {}
+    opt.label_config['label_class'] = opt.label_class
     if opt.sample_label:
         opt.label_config['sample_detach'] = 1 if (opt.sample_label == 2) else 0
 
