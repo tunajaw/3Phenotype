@@ -128,6 +128,12 @@ def write_to_summary(dict_metrics, opt, i_epoch=-1, prefix=''):
             # _ = ax.scatter(dict_metrics['tsne']['X_tsne'][:,0], dict_metrics['tsne']['X_tsne'][:,1], c=colors_tsne)
             # # opt.writer.add_figure('tsne', fig, i_epoch)
         dict_metrics.pop('tsne')
+
+    # [TODO]: add confusion matrix 
+    if 'pred_label/confusion' in dict_metrics:
+        1
+
+
     if 'pred_label/PR_curve' in dict_metrics:
         # fig = plt.figure(figsize=(8,8))
         # fig, ax = plt.subplots(figsize=(10, 10))
@@ -605,7 +611,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
                     'NextType(MC)/acc': metrics.accuracy_score(y_true, y_pred, normalize=True),
 
-                    'ConfMat': cm_display,
+                    # 'ConfMat': cm_display,
 
 
                 })
@@ -620,7 +626,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
                     'NextType(MC)/acc': metrics.accuracy_score(y_true, y_pred, normalize=True),
 
-                    'ConfMat': cm_display,
+                    # 'ConfMat': cm_display,
 
 
                 })
@@ -632,6 +638,9 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
         y_state_pred = (np.concatenate(y_state_pred_list))  # [*]
         y_state_true = (np.concatenate(y_state_true_list))
         y_state_score = (np.concatenate(y_state_score_list))
+
+        cm = metrics.confusion_matrix(y_state_true, y_state_pred)
+        cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
 
         pr, re, _ = metrics.precision_recall_curve(y_state_true, y_state_score)
         plt.figure()
@@ -655,7 +664,7 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
             'pred_label/PR_curve': plt,
 
-            
+            'ConfMat': cm_display,
         })
 
     return total_event_ll / total_num_event, total_event_rate / total_num_pred, rmse, dict_metrics

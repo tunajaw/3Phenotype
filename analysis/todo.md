@@ -35,7 +35,16 @@
     - [-] add HPO metric
         deprecated? since it doesn't consider type error loss, just considering time loss (like DTW)
         predict next event seems to be not important
-    - [] Think about whole training process
+    - [x] Think about whole training process
+    - [] Find out AutoEncoder (AE)
+    - [] Improved section
+        - How to serpeate and combine all time-series data (Maybe by Meta Learning?)
+        - Concating embedded data
+
+    - [] Confirm data
+        - Draw confusion matrix by wandb
+        - Data collection period modification
+        
 
 
 * experiment results

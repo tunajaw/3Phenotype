@@ -61,13 +61,17 @@ do
 
         echo "split #$i_split" 
 
-        echo "TEDA AE"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/debug.log 2>&1
+        # echo "TEDA AE"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/debug.log 2>&1
 
-        # TEDA__pp_ml
-        echo "TEDA ML"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > logs/Unsupervised/debug.log 2>&1
-
+        # # TEDA__pp_ml
+        # echo "TEDA ML"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > logs/Unsupervised/debug.log 2>&1
+        
+        # TE__nextmark
+        echo "TE AE"
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__nextmark -user_prefix "[$USER_PREFIX-TE__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/debug.log 2>&1
+        
         # TEDA__pp_single_mark
         echo "TEDA single"
         python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/debug.log 2>&1

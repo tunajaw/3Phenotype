@@ -146,6 +146,8 @@ class CIF_sahp(nn.Module):
         # embed_state = side[-3] # [B,P,d_r]
 
         # non_pad_mask = get_non_pad_mask(seq_types).squeeze(2)
+        # print(f"seq_times_shape: {seq_times.shape}")
+        # print(f"seq_times: {seq_times}")
 
         if self.mod == 'single':
             # seq_onehot_types=torch.ones_like(seq_times).unsqueeze(-1) # [B,L,1]
@@ -161,6 +163,11 @@ class CIF_sahp(nn.Module):
                 seq_types, num_classes=self.n_cifs+1)[:, :, 1:].type(torch.float)
 
         # seq_onehot_types = nn.functional.one_hot(seq_types, num_classes=self.num_types+1)[:,:,1:].type(torch.float)
+        # print(f"types: {seq_types.shape}")
+        # print(f"one_hot_types: {seq_onehot_types}")
+        # print(f"one_hot_types: {seq_onehot_types.shape}")
+        # assert 0
+
 
         dt_seq = (seq_times[:, 1:] - seq_times[:, :-1]) * \
             non_pad_mask[:, 1:]  # [B,L-1]

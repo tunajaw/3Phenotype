@@ -896,7 +896,6 @@ class TEEDAM(nn.Module):
         if hasattr(self, 'pred_label'):
 
             lens = non_pad_mask.squeeze(-1).sum(-1).long()
-            # [TODO] use every time 
             temp = torch.unbind(enc)
             # temp = [temp[lens[i]] for i in range (len(temp))]
             enc_last = torch.stack([temp[i][lens[i].item() - 1]
