@@ -9,7 +9,7 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON=" -demo -data_label multilabel  -epoch 50 -per 100  -label_class 1   -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
+COMMON=" -demo -data_label multilabel  -epoch 50 -per 100  -label_class 6 -label_name severe-diagnosis  -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
 HPs="-batch_size 32  -lr 0.01 -weight_decay 0.1 -w_pos_label 0.5 "
 
 

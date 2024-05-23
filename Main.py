@@ -129,11 +129,6 @@ def write_to_summary(dict_metrics, opt, i_epoch=-1, prefix=''):
             # # opt.writer.add_figure('tsne', fig, i_epoch)
         dict_metrics.pop('tsne')
 
-    # [TODO]: add confusion matrix 
-    if 'pred_label/confusion' in dict_metrics:
-        1
-
-
     if 'pred_label/PR_curve' in dict_metrics:
         # fig = plt.figure(figsize=(8,8))
         # fig, ax = plt.subplots(figsize=(10, 10))
@@ -578,6 +573,8 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             cm = metrics.confusion_matrix(y_true, y_pred)
             cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
 
+            # , values_format = '.5f'
+
             if hasattr(model, 'event_decoder') and opt.mod == 'ml': #model.event_decoder.n_cifs == n_classes:
 
                 y_event_score = (np.concatenate(y_event_score_list)[masks, :])
@@ -635,12 +632,19 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
     if hasattr(model, 'pred_label'):
 
 
+        if opt.label_name != 'Not exist':
+            label_names = np.array(pd.read_csv(f"./dataset/{opt.label_name}.csv")['name'])
+            if len(label_names) != opt.label_class + 1:
+                raise ValueError(f"label class ({len(label_names)+1}) is not match length of label_names list ({opt.label_class}).")
+        else:
+            label_names = list(range(opt.label_class))
+
         y_state_pred = (np.concatenate(y_state_pred_list))  # [*]
         y_state_true = (np.concatenate(y_state_true_list))
         y_state_score = (np.concatenate(y_state_score_list))
 
         cm = metrics.confusion_matrix(y_state_true, y_state_pred)
-        cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
+        cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=label_names).plot(values_format='')
 
         pr, re, _ = metrics.precision_recall_curve(y_state_true, y_state_score)
         plt.figure()
@@ -977,6 +981,7 @@ def options():
                         choices=[0, 1, 2], default=0, help='consider labels for supervised learning task? 0: No, 1: Yes, 2) Yes, but detach the prediction head (do not update DAM, TEE)')
     parser.add_argument('-w_pos_label', type=float, default=1.0, help="weight for positive labels in BCE loss.")
     parser.add_argument('-w_sample_label', type=float, default=10000.0)
+    parser.add_argument('-label_name', type=str, default='Not exist')
 
     opt = parser.parse_args()
 
@@ -1360,7 +1365,7 @@ def config(opt, justLoad=False):
         opt.CIF_config['type'] = opt.int_dec
 
         if opt.CIF_config['mod'] == 'single':
-            opt.CIF_config['n_cifs'] = opt.label_class
+            opt.CIF_config['n_cifs'] = 1 # opt.label_class
         else:
             opt.CIF_config['n_cifs'] = opt.num_marks
 

@@ -41,9 +41,9 @@
         - How to serpeate and combine all time-series data (Maybe by Meta Learning?)
         - Concating embedded data
 
-    - [] Confirm data
-        - Draw confusion matrix by wandb
-        - Data collection period modification
+    - [x] Confirm data
+        - Draw confusion matrix by wandb [v]
+        - Data collection period modification [v]
         
 
 
@@ -54,7 +54,7 @@
         - supervised: only `TEDA_none` is trainable (AE loss) (>> two types of `TEDA_nextmark`)
             * valid pred_label MCC: 0.362/ 0.086
     - predict all event (binary)
-        - all of them are like piece of shit :(
+        - 
 
 * consider more biomarkers
 

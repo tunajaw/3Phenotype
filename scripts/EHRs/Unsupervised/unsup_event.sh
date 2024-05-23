@@ -9,7 +9,7 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON="-demo -data_label multilabel  -epoch 50 -per 100  -label_class 1  -ES_pat 100 -wandb -wandb_project TEEDAM_unsupervised "
+COMMON="-demo -data_label multilabel  -epoch 50 -per 100  -label_class 6 -label_name severe-diagnosis -ES_pat 100 -wandb -wandb_project TEEDAM_unsupervised "
 
 TEE_CONFIG_C1="--te_d_mark 8 --te_d_time 4 --te_d_inner 32 --te_d_k 8 --te_d_v 8 --te_n_head 4 --te_n_layers 4 --te_dropout 0.1"
 
