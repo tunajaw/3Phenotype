@@ -1035,30 +1035,77 @@ def sahp_log_likelihood_test(model, embed_info, seq_times, seq_types,n_mc_sample
 
 
 # [TODO] multi-class classification loss 
-def state_label_loss(state_label,prediction, non_pad_mask, loss_fun, cuda=True, num_classes=1, pred_last=False):
+def state_label_loss(state_label, prediction, non_pad_mask, loss_fun, cuda=True, num_classes=1, pred_last=False):
 
-    # prediction [B,L,n_cif], state_label [B,L,1], non_pad_mask:[B,L]
+    # prediction [B,L,num_classes], state_label [B,L,1], non_pad_mask:[B,L]
     # print(f"state label shape: {state_label.shape}")
     # print(f"prediction shape: {prediction.shape}")
     # print(f"non_pad_mask: {non_pad_mask.shape}")
     # [TOCHECK]: variable-length tensor: might * non_pad_mask?
-    if pred_last:
-        lens = non_pad_mask.squeeze(-1).sum(-1).long()
-        predictions = prediction[np.arange(prediction.shape[0])   ,  lens-1,   :] #[B,1]
-        y_true = state_label[np.arange(state_label.shape[0])   ,  lens-1,   :] # [B, 1]
-        y_pred = predictions.gt(0).type(torch.int).squeeze(-1) # [B]
-        y_score = nn.Sigmoid()(predictions.squeeze(-1)) # [B]
 
+    if num_classes <= 0:
+        raise ValueError(f"num_classes {num_classes} should be not less than 1.")
+    
+    # binary classfication
+    elif num_classes == 1:
+        if pred_last:
+            lens = non_pad_mask.squeeze(-1).sum(-1).long()
+            predictions = prediction[np.arange(prediction.shape[0])   ,  lens-1,   :] #[B,1]
+            y_true = state_label[np.arange(state_label.shape[0])   ,  lens-1,   :] # [B, 1]
+            y_pred = predictions.gt(0).type(torch.int).squeeze(-1) # [B]
+            y_score = nn.Sigmoid()(predictions.squeeze(-1)) # [B]
+
+            
+
+        else:
+            non_pad_mask_total = non_pad_mask.squeeze(-1).flatten().long()
+            predictions = prediction.flatten()[non_pad_mask_total == 1] # all valid guesses [G]
+            y_pred = predictions.gt(0).type(torch.int) # all valid guesses [G]
+            y_true = state_label.flatten()[non_pad_mask_total == 1] # [G]
+            y_score = nn.Sigmoid()(predictions) # [G]
+
+            # print(f"y_true shape: {y_true.shape}")
+            # print(f"y_pred shape: {y_pred.shape}")
+            # print(f"y_score shape: {y_score.shape}")
+
+        loss = loss_fun(predictions, y_true.float()) 
+
+    # multi-class classification
     else:
-        non_pad_mask_total = non_pad_mask.squeeze(-1).ravel().long()
-        predictions = prediction.flatten()[non_pad_mask_total == 1] # all valid guesses [G]
-        y_pred = predictions.gt(0).type(torch.int) # all valid guesses [G]
-        y_true = state_label.flatten()[non_pad_mask_total == 1] # [G]
-        y_score = nn.Sigmoid()(predictions) # [G]
+        if not pred_last:
+            lens = non_pad_mask.squeeze(-1).sum(-1).long()
+            non_pad_mask_total = non_pad_mask.squeeze(-1).flatten().long()
+
+            filtered_pred = []
+    
+            for i in range(len(lens)):
+                valid_length = lens[i].item()
+                filtered_pred.append(prediction[i, :valid_length, :])
+            
+            # Concatenate the filtered predictions along the first dimension
+            predictions = torch.cat(filtered_pred, dim=0) # [G, C]
+
+            y_true = state_label.flatten()[non_pad_mask_total == 1] # [G]
+            y_pred = torch.argmax(predictions, dim=1)# predictions.gt(0).type(torch.int).squeeze(-1) # [G]
+            y_score = nn.Softmax(dim=1)(predictions) # [G]
+            # print(f"predictions shape: {predictions.shape}")
+            # print(f"y_true shape: {y_true.shape}")
+            # print(f"y_pred shape: {y_pred.shape}")
+            # print(f"y_score shape: {y_score.shape}")
+
+        else:
+            non_pad_mask_total = non_pad_mask.squeeze(-1).ravel().long()
+            predictions = prediction.flatten()[non_pad_mask_total == 1] # all valid guesses [G]
+            y_pred = predictions.gt(0).type(torch.int) # all valid guesses [G]
+            y_true = state_label.flatten()[non_pad_mask_total == 1] # [G]
+            y_score = nn.Sigmoid()(predictions) # [G]
+
+        loss = loss_fun(predictions, y_true.to(torch.int64)) 
 
     # loss = nn.BCEWithLogitsLoss(weight=w, reduction='none',pos_weight=w_pos)(prediction_last, y_true.float()) 
     # loss = loss_fun(y_pred.float(), y_true.float()) 
-    loss = loss_fun(predictions, y_true.float()) 
+    
+    # print(f"loss shape: {loss.shape}")
 
     # lens = non_pad_mask.squeeze(-1).sum(-1).long()
     # range_tensor = torch.arange(prediction.shape[1]).unsqueeze(0).expand(prediction.shape[0], -1)

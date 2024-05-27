@@ -49,12 +49,9 @@ class TEDA(torch.utils.data.Dataset):
             self.label = [[elem['label'] for elem in inst] for inst in data_event]
             self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in data_event]
 
-
         if self.have_demo:        
             self.demo = [inst for inst in dict_state['demo']]
 
-
-        a=1
 
     def __len__(self):
         return self.length

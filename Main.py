@@ -28,6 +28,9 @@ from tqdm import tqdm
 import wandb
 from dotenv import load_dotenv
 
+from io import BytesIO
+from PIL import Image
+
 
 # Project is specified by <entity/project-name>
 def dl_runs(all_runs, selected_tag=None):
@@ -91,8 +94,18 @@ def write_to_summary(dict_metrics, opt, i_epoch=-1, prefix=''):
         dict_metrics['ConfMat'].plot(ax=ax)
         # dict_metrics['ConfMat'].plot()
         # # opt.writer.add_figure('matplotlib', fig, i_epoch)
+
+        # Save the plot to a BytesIO object
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        image = Image.open(buf)
+        
+        wandb.log(
+            {'cx Confusion Matrix': wandb.Image(image)}, step=i_epoch)
+        
         dict_metrics.pop('ConfMat')
-        # plt.close()
+        plt.close(fig)
 
     if 'time_gap_data' in dict_metrics:
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -311,7 +324,7 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
                 model.y_next_type, event_type, pred_loss_func)
 
             log_loss['loss/pred_next_type'] += next_type_loss.item()
-            total_loss.append(next_type_loss)
+            # total_loss.append(next_type_loss)
 
         # next time prediction
         if hasattr(model, 'pred_next_time'):
@@ -321,7 +334,8 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
 
             temp = sse*opt.w_time
             log_loss['loss/pred_next_time'] += temp.item()
-            total_loss.append(temp)
+            # total_loss.append(temp)
+
         # [TOCHECK] multi-class prediction
         if hasattr(model, 'pred_label'):
 
@@ -332,7 +346,7 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
             #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
             
             state_label_loss, _ = Utils.state_label_loss(
-                state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, cuda=opt.cuda)
+                state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, cuda=opt.cuda, num_classes=opt.label_class)
 
             temp = state_label_loss*opt.w_sample_label
             log_loss['loss/pred_label'] += temp.item()  # /event_time.shape[0]
@@ -483,15 +497,15 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 state_label_red = state_label[:, :, None]
                 # state_label_red = state_label.bool().int()[:,:,None] # [B,L,1]
                 state_label_loss, (y_state_pred, y_state_true, y_state_score) = Utils.state_label_loss(
-                    state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, opt.cuda)
+                    state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, opt.cuda, num_classes=opt.label_class)
 
                 # total_loss.append(state_label_loss*opt.w_sample_label)
                 y_state_pred_list.append(torch.flatten(
                     y_state_pred).detach().cpu())  # [*]
                 y_state_true_list.append(torch.flatten(
                     y_state_true).detach().cpu())  # [*]
-                y_state_score_list.append(torch.flatten(
-                    y_state_score).detach().cpu())  # [*] it is binary
+                y_state_score_list.append(
+                    y_state_score.detach().cpu())  # [*] it can be NOT binary
                 
             # print("pass an epoch")
 
@@ -548,7 +562,6 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
 
             })
-            # [TOCHECK]
             if hasattr(model, 'event_decoder') and opt.mod == 'ml':#model.event_decoder.n_cifs == n_classes:
 
                 y_event_score = (np.concatenate(y_event_score_list)[masks, :])
@@ -637,36 +650,35 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             if len(label_names) != opt.label_class + 1:
                 raise ValueError(f"label class ({len(label_names)+1}) is not match length of label_names list ({opt.label_class}).")
         else:
-            label_names = list(range(opt.label_class))
+            label_names = list(range(opt.label_class + 1)) 
 
         y_state_pred = (np.concatenate(y_state_pred_list))  # [*]
         y_state_true = (np.concatenate(y_state_true_list))
         y_state_score = (np.concatenate(y_state_score_list))
-
         cm = metrics.confusion_matrix(y_state_true, y_state_pred)
         cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=label_names).plot(values_format='')
 
-        pr, re, _ = metrics.precision_recall_curve(y_state_true, y_state_score)
+        # pr, re, _ = metrics.precision_recall_curve(y_state_true, y_state_score)
         plt.figure()
-        plt.plot(re, pr)
-        plt.title('Precision-Recall Curve')
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
+        # plt.plot(re, pr)
+        # plt.title('Precision-Recall Curve')
+        # plt.xlabel('Recall')
+        # plt.ylabel('Precision')
+
+        # print(f"y_state_pred shape:{y_state_pred.shape}")
+        # print(f"y_state_true shape:{y_state_true.shape}")
+        # print(f"y_state_score shape:{y_state_score.shape}")
 
         dict_metrics.update({
-            'pred_label/AUROC': metrics.roc_auc_score(y_state_true, y_state_score),
-            'pred_label/AUPRC': metrics.average_precision_score(y_state_true, y_state_score),
-            'pred_label/f1-binary': metrics.f1_score(y_state_true, y_state_pred, average='binary', zero_division=0),
-
-            # 'pred_label/loss': total_label_state/total_num_event,
-            'pred_label/recall-binary': metrics.recall_score(y_state_true, y_state_pred, average='binary', zero_division=0),
-            'pred_label/precision-binary': metrics.precision_score(y_state_true, y_state_pred, average='binary', zero_division=0),
-
+            'pred_label/AUROC': metrics.roc_auc_score(y_state_true, y_state_score, multi_class='ovo'),
+            'pred_label/AUPRC': metrics.average_precision_score(y_state_true, y_state_score, average='macro'),
+            'pred_label/f1-macro': metrics.f1_score(y_state_true, y_state_pred, average='macro', zero_division=0),
+            'pred_label/recall-macro': metrics.recall_score(y_state_true, y_state_pred, average='macro', zero_division=0),
+            'pred_label/precision-macro': metrics.precision_score(y_state_true, y_state_pred, average='macro', zero_division=0),
             'pred_label/ACC': metrics.accuracy_score(y_state_true, y_state_pred),
-
             'pred_label/MCC': metrics.matthews_corrcoef(y_state_true, y_state_pred),
 
-            'pred_label/PR_curve': plt,
+            # 'pred_label/PR_curve': plt,
 
             'ConfMat': cm_display,
         })
@@ -712,8 +724,8 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
             best_test_metric.update({'NextType(MC)/f1-weighted': 0})
             best_valid_metric.update({'NextType(MC)/f1-weighted': 0})
     elif opt.wandb_project == 'TEEDAM_supervised':
-        best_test_metric.update({'pred_label/f1-binary': 0})
-        best_valid_metric.update({'pred_label/f1-binary': 0})
+        best_test_metric.update({'pred_label/f1-macro': 0})
+        best_valid_metric.update({'pred_label/f1-macro': 0})
 
 
     for epoch_i in tqdm(range(1, 1 + opt.epoch), leave=False):
@@ -762,9 +774,10 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
             write_to_summary(
                 dict_time, opt, i_epoch=opt.i_epoch, prefix='time-')
 
+            #[NEXT] modify metric name
             # objective value for HP Tuning
-            if 'pred_label/f1-binary' in dict_metrics_test:
-                inter_Obj_val = dict_metrics_test['pred_label/f1-binary']
+            if 'pred_label/f1-macro' in dict_metrics_test:
+                inter_Obj_val = dict_metrics_test['pred_label/f1-macro']
             elif 'NextType(ML)/f1-weighted' in dict_metrics_test:
                 inter_Obj_val = dict_metrics_test['NextType(ML)/f1-weighted']
             elif 'NextType(MC)/f1-weighted' in dict_metrics_test:
@@ -963,7 +976,7 @@ def options():
 
     # marks
     parser.add_argument('-next_mark',  type=int,
-                        choices=[0, 1], default=1, help='0: mark not detached, 1: mark detached')
+                        choices=[0, 1], default=1, help='consider next mark time/type predicting task?')
     parser.add_argument('-w_class', action='store_true',
                         dest='w_class', help='consider w_class?')
     parser.add_argument('-w_pos', action='store_true',
@@ -1212,8 +1225,12 @@ def config(opt, justLoad=False):
         opt.pred_loss_func = nn.CrossEntropyLoss(
             ignore_index=-1, reduction='none', weight=opt.w)
 
-    opt.label_loss_fun = nn.BCEWithLogitsLoss(
-        reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
+    
+    if opt.label_class == 1:
+        opt.label_loss_fun = nn.BCEWithLogitsLoss(
+            reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
+    else:
+        opt.label_loss_fun = nn.CrossEntropyLoss(reduction='none') #, pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
 
     opt.TE_config = {}
     if opt.event_enc:
@@ -1359,7 +1376,6 @@ def config(opt, justLoad=False):
         opt.demo_config['d_demo'] = 4
 
     opt.CIF_config = {}
-    # [TOCHECK] multi-class label
     if opt.mod != 'none':
         opt.CIF_config['mod'] = opt.mod
         opt.CIF_config['type'] = opt.int_dec
@@ -1373,7 +1389,8 @@ def config(opt, justLoad=False):
     if opt.next_mark:
         opt.next_type_config['n_marks'] = opt.num_marks
         opt.next_type_config['mark_detach'] = opt.mark_detach
-    opt.next_time_config = True
+    # [TOCHECK]
+    opt.next_time_config = True if opt.next_mark else False
 
     opt.label_config = {}
     opt.label_config['label_class'] = opt.label_class
@@ -1426,8 +1443,8 @@ def main():
 
         # shutil.copy(opt.run_path+'opt.pkl',wandb.run.dir+'/opt.pkl')
 
-    opt.label_loss_fun = nn.BCEWithLogitsLoss(
-        reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
+    # opt.label_loss_fun = nn.BCEWithLogitsLoss(
+    #     reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
 
     """ prepare model """
     model = TEEDAM(

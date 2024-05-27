@@ -86,7 +86,6 @@ class CIF_sahp(nn.Module):
         super().__init__()
 
         self.d_in = d_in
-        self.d_in = d_in
         self.n_cifs = n_cifs
 
         self.n_mc_samples = 100
