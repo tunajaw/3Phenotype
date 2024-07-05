@@ -19,7 +19,7 @@ import torch.optim as optim
 import transformer.Constants as Constants
 import Utils
 
-from preprocess.Dataset import get_dataloader
+from preprocess.Dataset import get_dataloader, combine_dataset_and_create_dataloader
 
 from transformer.Models import TEEDAM, align
 from tqdm import tqdm
@@ -31,6 +31,8 @@ from dotenv import load_dotenv
 from io import BytesIO
 from PIL import Image
 
+from Cluster.cluster import Cluster
+from sklearn.manifold import TSNE
 
 # Project is specified by <entity/project-name>
 def dl_runs(all_runs, selected_tag=None):
@@ -264,8 +266,14 @@ def prepare_dataloader(opt):
                                  shuffle=False, data_label=opt.data_label, balanced=False, state_args=state_args)
     validloader = get_dataloader(valid_data, data_state=valid_state, bs=opt.batch_size,
                                   shuffle=False, data_label=opt.data_label, balanced=False, state_args=state_args)
+    
+    state_args["idcode_in_demo"] = opt.dataset == 'event'
+    print(f"Is idcode in demo? {opt.dataset == 'event'}")
+    
+    fullloader = combine_dataset_and_create_dataloader([train_data, valid_data, test_data], [train_state, valid_state, test_state],
+                                                       bs=opt.batch_size, shuffle=True, data_label=opt.data_label, balanced=opt.balanced_batch, state_args=state_args)
 
-    return trainloader, validloader, testloader, additional_info
+    return trainloader, validloader, testloader, fullloader, additional_info
 
 
 def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
@@ -489,7 +497,6 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 total_time_sse_norm += sse_norm.item()
 
             # label prediction
-            # [TODO] multi-class prediction
             if hasattr(model, 'pred_label') and (state_label is not None):
 
                 # state_label_red = align(
@@ -819,8 +826,6 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
                     }, opt.run_path+'/best_model.pkl')
 
             if inter_Obj_val > (best_metric+0.0001):
-                # Save the model weights
-                # torch.save(model.state_dict(), "best_model.pth")
 
                 # Reset the early stopping counter
                 early_stopping_counter = 0
@@ -842,7 +847,8 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
                     break
 
           
-
+    # Save the model weights
+    torch.save(model.state_dict(), f"{opt.user_prefix}.pth")
     return best_metric
 
 
@@ -996,6 +1002,12 @@ def options():
     parser.add_argument('-w_sample_label', type=float, default=10000.0)
     parser.add_argument('-label_name', type=str, default='Not exist')
 
+    # cluster
+    parser.add_argument('-K', type=int, default=7, help='cluster number')
+    parser.add_argument('-cluster', type=int, default=0, choices=[0, 1], help='0: No cluster assignment, 1: with cluster assignment')
+    parser.add_argument('-sample_gap', type=int, default=60, help='what interval between visits should be sampled?')
+    parser.add_argument('-draw_plt', type=int, default=0, choices=[0, 1], help='0: No TSNE plot, 1: Draw TSNE plot')
+
     opt = parser.parse_args()
 
     temp = vars(opt)
@@ -1041,6 +1053,8 @@ def config(opt, justLoad=False):
             opt.dataset = 'P12'
         elif 'p19' in opt.data:
             opt.dataset = 'P19'
+        elif 'event' in opt.data:
+            opt.dataset = 'event'
 
         if opt.setting == '':
             opt.str_config = '-'
@@ -1148,7 +1162,7 @@ def config(opt, justLoad=False):
 
     """ prepare dataloader """
     # if justLoad is False:
-    opt.trainloader, opt.validloader, opt.testloader, additional_info = prepare_dataloader(
+    opt.trainloader, opt.validloader, opt.testloader, opt.fullloader, additional_info = prepare_dataloader(
         opt)
 
     if opt.mod == 'single' or opt.mod == 'none':
@@ -1419,6 +1433,109 @@ def load_module(model, checkpoint, modules, to_freeze=True):
 
     return
 
+def draw_plot(x_corpus, label, output_dir='./imgs'):
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    tsne = TSNE(n_components=2, random_state=42)
+    x_tsne = tsne.fit_transform(x_corpus)
+
+    plt.figure(figsize=(28, 20))
+
+    cx_name = [f'Cluster #{i}' for i in range(7)]
+
+    unique_labels = np.unique(label)
+    colors = plt.cm.jet(np.linspace(0, 1, len(unique_labels)))
+
+    for i, unique_label in enumerate(unique_labels):
+        plt.scatter(x_tsne[label == unique_label, 0], x_tsne[label == unique_label, 1], 
+                    color=colors[i], label=f'{cx_name[i]}', alpha=0.5, s=1)
+
+    plt.legend()
+    plt.title('t-SNE visualization of x_corpus')
+    plt.xlabel('t-SNE component 1')
+    plt.ylabel('t-SNE component 2')
+
+    output_path = os.path.join(output_dir, 'cluster_TSNE.jpg')
+    plt.savefig(output_path, format='jpg', dpi=300)
+
+@torch.no_grad
+def cluster(model, data, opt):
+    # use full data to perform clustering algorithm
+    x_corpus = []
+    z_corpus = []
+    pad_mask = []
+    ground_labels = []
+    idcodes = []
+
+    for batch in tqdm(data, mininterval=2, desc='  - (Cluster encoded data)   ', leave=False):
+
+        batch = [x.to(opt.device) for x in batch]
+
+        state_data = []
+        state_label = None
+        event_time, time_gap, event_type = batch[:3]
+        if opt.state:
+            state_time, state_value, state_mod = batch[3:6]
+            state_data = batch[3:6]
+        if opt.sample_label:
+            state_time, state_value, state_mod = batch[3:6]
+            state_label = batch[6]
+        if opt.demo and (opt.dataset == 'event'):
+            state_data.append(batch[-2])
+        else:
+            state_data.append(batch[-1])
+        if opt.dataset == 'event':
+            idcode = batch[-1]
+
+        
+        sample_event_mask = Utils.sample_event_mask(event_time, opt.sample_gap, opt.device).view(-1)
+        non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(2).view(-1) * sample_event_mask
+
+        enc_out = model(event_type, event_time, state_data=state_data)
+        enc_out = enc_out.view(-1, enc_out.size(2))[non_pad_mask.bool()]
+
+        y_score = nn.Sigmoid()(model.y_label)
+        y_score = y_score.view(-1, y_score.size(2))[non_pad_mask.bool()]
+
+        ground_label = state_label.flatten()[non_pad_mask.bool()]
+
+        idcodes.append(idcode.flatten()[non_pad_mask.bool()])
+
+        x_corpus.append(enc_out)
+        z_corpus.append(y_score)
+        pad_mask.append(non_pad_mask)
+        ground_labels.append(ground_label)
+
+    # clusters
+    ground_labels = torch.cat(ground_labels, 0).flatten().cpu().numpy()
+    idcodes = torch.cat(idcodes, 0).flatten().cpu().numpy()
+    print(f"total {len(ground_labels)} samples (check: x_corpus: {torch.cat(x_corpus, 0).cpu().numpy().shape}, idcode: {idcodes.shape})")
+    cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device)
+    label = cluster.cluster()
+
+    groups = np.zeros((opt.K, opt.K))
+    print(ground_labels.shape, label.shape)
+    for ground, _label in zip(ground_labels, label):
+        # print(ground)
+        # print(_label)
+        groups[ground][int(_label)] += 1
+
+    for i in groups:
+        print(f"{' '.join([str(j) for j in i])}")
+
+    np.savez(f"./temp_model/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
+    np.savez(f"./temp_model/data/cluster.npz", label)
+    np.savez(f"./temp_model/data/idcode.npz", idcodes)
+    
+    if opt.draw_plt:
+        print(f"{torch.cat(x_corpus, 0).cpu().numpy().shape}, {label.shape}")
+        draw_plot(torch.cat(x_corpus, 0).cpu().numpy(), label)
+
+    return label
+
+
 
 def main():
     """ Main function. """
@@ -1428,6 +1545,8 @@ def main():
     opt = options()  # if run from command line it process sys.argv
 
     opt = config(opt) # some 
+
+    print(opt.device)
 
     torch.manual_seed(42)
 
@@ -1524,10 +1643,13 @@ def main():
     train(model, opt.trainloader, opt.validloader,
                             opt.testloader, optimizer, scheduler, opt.pred_loss_func, opt, None)
     
+    if opt.cluster:
+        print("start clustering...")
+        label = cluster(model, opt.fullloader, opt)
+        #[TODO] future analysis
     
     shutil.copy(opt.run_path+'opt.pkl', wandb.run.dir+'/opt.pkl')
     shutil.copy(opt.run_path+'best_model.pkl', wandb.run.dir+'/best_model.pkl')
-
 
     if opt.wandb:
 

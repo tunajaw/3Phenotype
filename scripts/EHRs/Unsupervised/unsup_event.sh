@@ -9,7 +9,7 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON="-demo -data_label multilabel  -epoch 50 -per 100  -label_class 6 -ES_pat 100 -wandb -wandb_project TEEDAM_unsupervised "
+COMMON="-demo -data_label multilabel  -epoch 1 -per 100  -label_class 6 -K 7 -cluster 1 -sample_gap 90 -draw_plt 1 -ES_pat 100 -wandb -wandb_project TEEDAM_unsupervised "
 
 TEE_CONFIG_C1="--te_d_mark 8 --te_d_time 4 --te_d_inner 32 --te_d_k 8 --te_d_v 8 --te_n_head 4 --te_n_layers 4 --te_dropout 0.1"
 
@@ -63,9 +63,9 @@ do
 
         # each of the following lines corresponds to a row in Table 4
 
-        # TE__pp_single_mark
-        echo "TE single"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_single_mark -user_prefix "[$USER_PREFIX-TE__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/TE_single.log 2>&1
+        # # TE__pp_single_mark
+        # echo "TE single"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_single_mark -user_prefix "[$USER_PREFIX-TE__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/TE_single.log 2>&1
         # TEDA__pp_single_mark
         echo "TEDA single"
         python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/TEDA_single.log 2>&1
@@ -74,22 +74,22 @@ do
 
 
 
-        # TE__pp_ml
-        echo "TE ML"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_ml -user_prefix "[$USER_PREFIX-TE__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > logs/Unsupervised/TE_ML.log 2>&1
-        # TEDA__pp_ml
-        echo "TEDA ML"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > logs/Unsupervised/TEDA_ML.log 2>&1
+        # # TE__pp_ml
+        # echo "TE ML"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_ml -user_prefix "[$USER_PREFIX-TE__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > logs/Unsupervised/TE_ML.log 2>&1
+        # # TEDA__pp_ml
+        # echo "TEDA ML"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-ml3 > logs/Unsupervised/TEDA_ML.log 2>&1
 
 
 
 
-        # TE__nextmark
-        echo "TE AE"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TE__nextmark -user_prefix "[$USER_PREFIX-TE__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/TE_AE.log 2>&1
-        # TEDA__nextmark
-        echo "TEDA AE"
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/TEDA_AE.log 2>&1
+        # # TE__nextmark
+        # echo "TE AE"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TE__nextmark -user_prefix "[$USER_PREFIX-TE__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/TE_AE.log 2>&1
+        # # TEDA__nextmark
+        # echo "TEDA AE"
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-nextmark3 > logs/Unsupervised/TEDA_AE.log 2>&1
 
 
 

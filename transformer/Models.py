@@ -781,7 +781,6 @@ class TEEDAM(nn.Module):
 
         # sample final label ************************************************************
         if label_config:
-            # [TODO] change the # of predict types
             if label_config['label_class'] == 1:
                 self.pred_label = Predictor(self.d_con, label_config['label_class'])
             else:
@@ -909,7 +908,7 @@ class TEEDAM(nn.Module):
             if self.sample_detach:
                 self.y_label = self.pred_label(
                     enc.detach(), non_pad_mask)  # [B, L]
-            else:
+            else:     
                 self.y_label = self.pred_label(enc, non_pad_mask)  # [B, L]
 
         if verbose:

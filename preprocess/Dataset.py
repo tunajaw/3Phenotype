@@ -3,7 +3,7 @@ import torch
 import torch.utils.data
 
 from transformer import Constants
-from torch.utils.data import WeightedRandomSampler
+from torch.utils.data import WeightedRandomSampler, ConcatDataset
 
 import random
 
@@ -13,7 +13,7 @@ import random
 class TEDA(torch.utils.data.Dataset):
     """ Event stream dataset. """
 
-    def __init__(self, data_event, dict_state=None, dim='MHP', data_label='multiclass', have_label=False, have_demo=False):
+    def __init__(self, data_event, dict_state=None, dim='MHP', data_label='multiclass', have_label=False, have_demo=False, idcode_in_demo=False):
         """
         Data should be a list of event streams; each event stream is a list of dictionaries;
         each dictionary contains: time_since_start, time_since_last_event, type_event
@@ -22,6 +22,7 @@ class TEDA(torch.utils.data.Dataset):
         self.have_label=have_label
         self.have_demo=have_demo
         self.have_state = False # will change later
+        self.idcode_in_demo = idcode_in_demo
 
         self.time = [[elem['time_since_start'] for elem in inst] for inst in data_event]
         self.time_gap = [[elem['time_since_last_event'] for elem in inst] for inst in data_event]
@@ -45,12 +46,16 @@ class TEDA(torch.utils.data.Dataset):
             self.mod = [[elem['mod']+1 for elem in inst] for inst in dict_state['state']]        
             
 
-        if self.have_label:        
+        if self.have_label:   
             self.label = [[elem['label'] for elem in inst] for inst in data_event]
+            #[TODO] revise the sample label 
             self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in data_event]
 
-        if self.have_demo:        
+        if self.have_demo:    
             self.demo = [inst for inst in dict_state['demo']]
+
+        if self.idcode_in_demo:    
+            self.idcode = [[inst] * len([elem['type_event'] for elem in _event]) for _event, inst in zip(data_event, dict_state['idcode'])]
 
 
     def __len__(self):
@@ -73,6 +78,9 @@ class TEDA(torch.utils.data.Dataset):
 
         if self.have_label:
             sample.update({   'label':self.label[idx]   })
+
+        if self.idcode_in_demo:
+            sample.update({   'idcode':self.idcode[idx]   })
 
         
         return sample
@@ -167,6 +175,11 @@ def collate_fn(insts):
         demo = torch.tensor( [ inst['demo'] for inst in insts] ) # [B, num_demos]
         out.append(demo)
 
+    if 'idcode' in insts[0]:
+        idcode = [inst['idcode'] for inst in insts] 
+        idcode = pad_time(idcode) # ([B,P])
+        out.append(idcode)
+
     return out
 
 
@@ -218,3 +231,56 @@ def get_dataloader(data_event, data_state=None, bs=4, shuffle=True, dim='MHP', d
     return dl
 
 
+def combine_dataset_and_create_dataloader(data_events, data_states, bs=4, shuffle=True, dim='MHP', data_label='multiclass', balanced=False, state_args=None):
+    
+    if len(data_events) != len(data_states):
+        raise ValueError(f"the number of data_event({len(data_events)}) should be equal to the number of data_states ({len(data_states)})")
+    
+    datasets = []
+
+    for data_event, data_state in zip(data_events, data_states):
+        one_ds = TEDA(data_event, data_state, dim=dim, data_label=data_label, **state_args)
+        datasets.append(one_ds)
+    
+    ds = ConcatDataset(datasets)
+    
+
+    if balanced and hasattr(ds, 'whole_label'):
+        
+        sample_labels = ds.sample_label()
+        pos_count = sum(sample_labels)
+        neg_count = len(sample_labels) - sum(sample_labels)
+        class_counts = [neg_count, pos_count]
+        sample_weights = [1/class_counts[i] for i in sample_labels]
+        sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(ds), replacement=True)
+
+        print(f'[info] True/total = {pos_count/(pos_count+neg_count) :.4f}')
+        
+        print(f'[info] balanced mini batches')
+
+        dl = torch.utils.data.DataLoader(
+            ds,
+            num_workers=0,
+            batch_size=bs,
+            collate_fn=collate_fn,
+            # shuffle=shuffle,
+            drop_last=True,
+            sampler=sampler,
+            # pin_memory=True,
+        )
+
+    else:
+        dl = torch.utils.data.DataLoader(
+            ds,
+            num_workers=0,
+            batch_size=bs,
+            collate_fn=collate_fn,
+            shuffle=shuffle,
+            drop_last=True,
+            # sampler=sampler,
+            # pin_memory=True,
+
+        )
+
+
+    return dl

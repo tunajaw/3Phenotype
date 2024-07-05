@@ -8,6 +8,12 @@ from transformer import Constants
 
 import numpy as np
 
+def sample_event_mask(time, gap, device):
+    phase = time // gap
+    phase_np = phase.cpu().numpy()
+    diff_result = np.diff(phase_np, prepend=-1)
+    return torch.tensor(diff_result != 0).to(device)
+
 def cal_cif(model, data, time, non_pad_mask, type_mask):
     """ Log-likelihood of non-events, using Monte Carlo integration. """
 
@@ -1033,8 +1039,6 @@ def sahp_log_likelihood_test(model, embed_info, seq_times, seq_types,n_mc_sample
 
     return example
 
-
-# [TODO] multi-class classification loss 
 def state_label_loss(state_label, prediction, non_pad_mask, loss_fun, cuda=True, num_classes=1, pred_last=False):
 
     # prediction [B,L,num_classes], state_label [B,L,1], non_pad_mask:[B,L]

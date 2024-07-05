@@ -1,15 +1,17 @@
 * Labeling
     - [] match ctd events and ConfMatrix summation
         - [] Cancel weighted sampling?
-    - [] find out why training epoch in wandb would break in some settings
-    - [] multi-class labeling
+    - [-] find out why training epoch in wandb would break in some settings
+        - Observation: Just in best epoch
+    - [x] multi-class labeling
         - ~~num_types~~
         - CIFs [v]
         - current: only use last predictions as eval. metric. Find out if can directly use all y_labels (yes!)
         - Predcitor output (final layer of Predictor activation) 
     - [] Find out AutoEncoder (AE)
-    - [] CCS/LAB/Static data time alignment
-        * Observation: enc_out ([B,L,d_in]) 的時間維度有跟 event_time ([B, L])對齊
+    - [x] CCS/LAB/Static data time alignment
+        * Observation: enc_out ([B,L,d_in]) 的時間維度有跟 event_time ([B, L]) 對齊
+        - time alignment - similar to label mapping
     - [x] Meaning of Obj - Can the weights of Lcif and Ltask can be adjust?
         * Obj is defined as f1-score - Doesn't imply bp
         * weight can be adjust but still not implemetned
@@ -29,10 +31,30 @@
             - Remove pred_time/pred_type loss
             - LR scheduler
 
+* combine t-phennotype clustering
+    * Distance Matrix Construction
+        - [I] preprocessing (data storage)
+            - [x] data loader combination
+            - [I] main function at main
+            - [I] model.cluster
+            - [] data storage
+            - [] data sampler
+        - [I] sync_clustering
+        - [] Do we need to interpolate x_corpus?
+        - [B] predict_proba_from_path
+            - [] add a sigmoid layer at the last
+    * Constrained K-Means Clustering
+        - [I] graph_kmeans
 
 * consider more biomarkers
 
 - [] Improved section
         - How to serpeate and combine all time-series data (Maybe by Meta Learning?)
             - Search papers for "Meta Learning for selecting parameters"
-        - Concating embedded data
+        - Concating embedded 
+        
+
+
+- [] Questions
+    * Why only choose patients diagnosed MORE THAN 2 times of SADs?
+    * Why filtered patients daignosed /w more than 2 kinds of SADs?
