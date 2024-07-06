@@ -1512,7 +1512,7 @@ def cluster(model, data, opt):
     ground_labels = torch.cat(ground_labels, 0).flatten().cpu().numpy()
     idcodes = torch.cat(idcodes, 0).flatten().cpu().numpy()
     print(f"total {len(ground_labels)} samples (check: x_corpus: {torch.cat(x_corpus, 0).cpu().numpy().shape}, idcode: {idcodes.shape})")
-    cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device)
+    cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device, opt.user_prefix)
     label = cluster.cluster()
 
     groups = np.zeros((opt.K, opt.K))
@@ -1525,13 +1525,15 @@ def cluster(model, data, opt):
     for i in groups:
         print(f"{' '.join([str(j) for j in i])}")
 
-    np.savez(f"./temp_model/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
-    np.savez(f"./temp_model/data/cluster.npz", label)
-    np.savez(f"./temp_model/data/idcode.npz", idcodes)
+    os.makedirs(f"./temp_model/{opt.user_prefix}/data", exist_ok=True)
+
+    np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
+    np.savez(f"./temp_model/{opt.user_prefix}/data/cluster.npz", label)
+    np.savez(f"./temp_model/{opt.user_prefix}/data/idcode.npz", idcodes)
     
     if opt.draw_plt:
         print(f"{torch.cat(x_corpus, 0).cpu().numpy().shape}, {label.shape}")
-        draw_plot(torch.cat(x_corpus, 0).cpu().numpy(), label)
+        draw_plot(torch.cat(x_corpus, 0).cpu().numpy(), label, f"./temp_model/{opt.user_prefix}/data")
 
     return label
 

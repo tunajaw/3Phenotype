@@ -9,29 +9,30 @@ from Util.utils import batch_d, EPS
 
 
 class Cluster:
-    def __init__(self, x, z, predictor, K, device) -> None:
+    def __init__(self, x, z, predictor, K, device, user_prefix='') -> None:
         self.x = (x, x)
         self.prob = z
         self.probs = (z, z)
         self.K = K
         self.predictor = predictor
         self.device = device
+        self.user_prefix = user_prefix if user_prefix else "default"
         
         self._chunked_rows = None
 
     def cluster(self):
         self.generate_distance_matrix()
 
-        if(os.path.exists(f"./temp_model/kmeans/kmeans.pkl")):
+        if(os.path.exists(f"./temp_model/{self.user_prefix}/kmeans/kmeans.pkl")):
             print('load pretrained kmeans')
-            self.kmeans = GraphKmeans.load(filename="./temp_model/kmeans/kmeans.pkl")
+            self.kmeans = GraphKmeans.load(filename=f"./temp_model/{self.user_prefix}/kmeans/kmeans.pkl")
         else:
             print('construct kmeans obj')
-            self.kmeans = GraphKmeans(self.K, None, self.prob, self._chunked_rows, True, './temp_model/kmeans/training/A', './temp_model/kmeans/training/G')
+            self.kmeans = GraphKmeans(self.K, None, self.prob, self._chunked_rows, True, self.user_prefix)
             print('fitting kmeans...')
             self.kmeans.fit()
             print('save kmeans obj...')
-            self.kmeans.save(filename="./temp_model/kmeans/kmeans.pkl")
+            self.kmeans.save(filename=f"./temp_model/{self.user_prefix}/kmeans/kmeans.pkl")
         print('get clusters...')
         self.clusters = [self.kmeans.get_cluster(k) for k in range(self.kmeans.K)]
         print(len(self.clusters))
@@ -56,7 +57,7 @@ class Cluster:
         print(f"x_test shape:{x_test.shape}")
         print(f"probs_corpus shape:{probs_corpus.shape}")
 
-        folder_name = f"./temp_model/kmeans/training/A"
+        folder_name = f"./temp_model/{self.user_prefix}/kmeans/training/A"
         print(folder_name)
         os.makedirs(folder_name, exist_ok=True)
 
@@ -102,7 +103,7 @@ class Cluster:
         path = (1 - t) * x1[:, np.newaxis, :] + t * x2[:, np.newaxis, :]
         return path
 
-    def _batch_path_test(self, x1, x2, num=50):
+    def _batch_path_test(self, x1, x2, num=2):
         # x1: batch_size x x_dim
         # x2: batch_size x x_dim
         # paths: batch_size x self.test_num x x_dim

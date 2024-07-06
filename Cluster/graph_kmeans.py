@@ -22,9 +22,11 @@ def d_js(p, q):
 
 
 class GraphKmeans:
-    def __init__(self, K, S, Q, chunked_rows, big_data=True, S_link='./temp_model/S', G_link = './temp_model/G'):
+    def __init__(self, K, S, Q, chunked_rows, big_data=True, user_prefix=''):
         N, y_dim = Q.shape
         self.K = K
+
+        self.user_prefix = user_prefix
         
         self.Q = Q
         self.delta = np.log(2)
@@ -47,7 +49,7 @@ class GraphKmeans:
         self._init_BigArray(training_dataset_cfgs)
 
     def _init_BigArray(self, dataset_cfgs):
-        link = f"./temp_model/kmeans/{dataset_cfgs['dataset']}"
+        link = f"./temp_model/{self.user_prefix}/kmeans/{dataset_cfgs['dataset']}"
         self.BigS[dataset_cfgs['dataset']] = BigArray(dataset_cfgs['chunked_rows'], f"{link}/A")
         self.BigG[dataset_cfgs['dataset']] = BigArray(dataset_cfgs['chunked_rows'], f"{link}/G")
 
@@ -260,7 +262,7 @@ class GraphKmeans:
     def predict(self, S, probs, dataset_cfgs):
 
         dataset = dataset_cfgs['dataset']
-        folder_name = f"./temp_model/kmeans/{dataset}"
+        folder_name = f"./temp_model/{self.user_prefix}/kmeans/{dataset}"
 
         if(os.path.exists(f"{folder_name}/cluster_assignment.npy")):
             cluster_assignment = np.load(f"{folder_name}/cluster_assignment.npy")

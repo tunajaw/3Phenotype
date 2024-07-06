@@ -8,6 +8,8 @@ wandb
 .vscode
 .log
 
+.pth
+
 # "distilbert-base-uncased-finetuned-imdb/"
 # test-trainer/
 
