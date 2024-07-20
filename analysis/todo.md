@@ -33,18 +33,25 @@
 
 * combine t-phennotype clustering
     * Distance Matrix Construction
-        - [I] preprocessing (data storage)
+        - [x] preprocessing (data storage)
             - [x] data loader combination
-            - [I] main function at main
-            - [I] model.cluster
-            - [] data storage
-            - [] data sampler
-        - [I] sync_clustering
+            - [x] main function at main
+            - [x] model.cluster
+            - [x] data storage
+            - [x] data sampler
+                - [] Implicit issue: two samples may be too close ex. | 89 | 1 |
+        - [x] sync_clustering
         - [] Do we need to interpolate x_corpus?
-        - [B] predict_proba_from_path
-            - [] add a sigmoid layer at the last
+        - [] Do we need to conduct warm start of Graph KMeans?
+        - [x] predict_proba_from_path
+            - [x] add a sigmoid layer at the last
     * Constrained K-Means Clustering
-        - [I] graph_kmeans
+        - [x] graph_kmeans
+
+* data imbalance
+    - [] Why predictor always only predict 0 or 2?
+        - [] add weight at the predictor
+    - [] find of how unsupervised learning train the predictor
 
 * consider more biomarkers
 

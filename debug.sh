@@ -9,7 +9,7 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON="-demo -data_label multilabel  -epoch 1 -per 100  -label_class 6 -K 7 -cluster 1 -sample_gap 360 -ES_pat 100 -wandb -wandb_project TEEDAM_debug "
+COMMON="-demo -data_label multilabel  -epoch 50 -per 100  -label_class 6 -K 7 -cluster 0 -sample_gap 360 -ES_pat 100 -wandb -wandb_project TEEDAM_debug "
 
 TEE_CONFIG_C1="--te_d_mark 8 --te_d_time 4 --te_d_inner 32 --te_d_k 8 --te_d_v 8 --te_n_head 4 --te_n_layers 4 --te_dropout 0.1"
 
@@ -18,7 +18,9 @@ DAM_CONFIG_C2="--dam_output_activation relu --dam_output_dims  16 --dam_n_phi_la
 
 OPT_HPs="-batch_size 32  -lr 0.01 -weight_decay 0.1" # simpler2
 
-HPs="$OPT_HPs $TEE_CONFIG_C1 $DAM_CONFIG_C2"
+# sample labels (check if it is valid for unsup learning?)
+HPs="$OPT_HPs $TEE_CONFIG_C1 $DAM_CONFIG_C2 -w_pos_label 0.1 0.6 0.1 1.6 1.8 1.8 1"
+# -w_pos_label 0.002 0.055 0.013 0.182 0.283 0.395 0.071" 0.11004524 0.61603797 0.15132778 1.24854131 1.91095199 2.64118285 0.52191287
 
 
 

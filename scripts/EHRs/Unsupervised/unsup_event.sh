@@ -67,9 +67,8 @@ do
         echo "TE single"
         python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_single_mark -user_prefix "[$USER_PREFIX-TE__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/TE_single.log 2>&1
         # TEDA__pp_single_mark
-        # echo "TEDA single"
-        # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/TEDA_single.log 2>&1
-
+        echo "TEDA single"
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat-d$i_diag]" -time_enc concat -wandb_tag RD74-single3 > logs/Unsupervised/TEDA_single.log 2>&1
 
 
 

@@ -9,7 +9,7 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON=" -demo -data_label multilabel  -epoch 50 -per 100  -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 1 -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
+COMMON=" -demo -data_label multilabel  -epoch 50 -per 100  -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 0 -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
 HPs="-batch_size 16  -lr 0.01 -weight_decay 0.1 -w_pos_label 0.5 "
 
 
@@ -43,8 +43,8 @@ do
         echo "first split #$i_split" 
 
         # DA__base (DAM in Table 5)
-        echo "DAM" 
-        python Main.py  $HPs $COEFS $SETTING $COMMON $DA__base -user_prefix "[$USER_PREFIX-DA__base-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/DA.log 2>&1
+        # echo "DAM" 
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $DA__base -user_prefix "[$USER_PREFIX-DA__base-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/DA.log 2>&1
 
         # TEDA__none (TEE+DAM in Table 5)
         echo "TEE+DAM"

@@ -7,7 +7,10 @@ import torch.nn.functional as F
 import transformer.Constants as Constants
 from transformer.Layers import EncoderLayer
 
-from transformer.Modules import  Predictor, CIF_sahp, MLP_state, CumulativeSetAttentionLayer, CIF_thp
+import Utils
+
+from transformer.Modules import  Predictor, CIF_sahp, MLP_state, CumulativeSetAttentionLayer, CIF_thp, MLP
+
 
 def get_non_pad_mask(seq):
     """ Get the non-padding positions. """
@@ -689,6 +692,8 @@ class TEEDAM(nn.Module):
 
         self.device = device
 
+        self.pred_gap = 30
+
         self.temp = {}
 
         # TRANSFORMER ENCODER ************************************************************
@@ -784,7 +789,8 @@ class TEEDAM(nn.Module):
             if label_config['label_class'] == 1:
                 self.pred_label = Predictor(self.d_con, label_config['label_class'])
             else:
-                self.pred_label = Predictor(self.d_con, label_config['label_class']+1)
+                # self.pred_label = Predictor(self.d_con, label_config['label_class']+1)
+                self.pred_label = MLP(self.d_con, label_config['label_class']+1, 20, 4)
 
             self.sample_detach = label_config['sample_detach']
 
@@ -829,6 +835,9 @@ class TEEDAM(nn.Module):
         """
         non_pad_mask = get_non_pad_mask(
             event_type)  # [B,L,1] 0 for padded elements
+        
+        sample_event_mask = Utils.sample_event_mask(event_time, self.pred_gap, self.device)
+
 
         enc = []
 
@@ -905,6 +914,9 @@ class TEEDAM(nn.Module):
                                    for i in range(len(temp))], 0)  # [B,d_con]
             # enc_last = enc_last if self.sample_label==1 else enc_last.detach() # if it is equal to 2
             # self.y_label = self.pred_label(enc_last, 1) # [B]
+
+            
+            
             if self.sample_detach:
                 self.y_label = self.pred_label(
                     enc.detach(), non_pad_mask)  # [B, L]

@@ -385,7 +385,9 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
 
     dict_metrics.update(log_loss)
 
-    return total_event_ll / total_num_event, total_event_rate / total_num_pred, rmse, dict_metrics
+    #[TODO] only debug-use
+    print(log_loss)
+    return total_event_ll / total_num_event, total_event_rate / total_num_pred, rmse, log_loss #dict_metrics
 
 
 def valid_epoch(model, validation_data, pred_loss_func, opt):
@@ -464,7 +466,6 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 continue
 
             # CIF decoder
-            # [TOCHECK] 
             if hasattr(model, 'event_decoder'):
                 log_sum, integral_ = model.event_decoder(
                     enc_out, event_time, event_type, non_pad_mask)
@@ -505,7 +506,6 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
                 # state_label_red = state_label.bool().int()[:,:,None] # [B,L,1]
                 state_label_loss, (y_state_pred, y_state_true, y_state_score) = Utils.state_label_loss(
                     state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, opt.cuda, num_classes=opt.label_class)
-
                 # total_loss.append(state_label_loss*opt.w_sample_label)
                 y_state_pred_list.append(torch.flatten(
                     y_state_pred).detach().cpu())  # [*]
@@ -781,6 +781,10 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
             write_to_summary(
                 dict_time, opt, i_epoch=opt.i_epoch, prefix='time-')
 
+            #[TODO] only for debug-use
+            write_to_summary(
+                dict_metrics_train, opt, i_epoch=opt.i_epoch, prefix='TrainLoss-')
+            
             #[NEXT] modify metric name
             # objective value for HP Tuning
             if 'pred_label/f1-macro' in dict_metrics_test:
@@ -998,7 +1002,8 @@ def options():
     parser.add_argument('-label_class', type=int, default=1, help='number of classes of the label')
     parser.add_argument('-sample_label',  type=int,
                         choices=[0, 1, 2], default=0, help='consider labels for supervised learning task? 0: No, 1: Yes, 2) Yes, but detach the prediction head (do not update DAM, TEE)')
-    parser.add_argument('-w_pos_label', type=float, default=1.0, help="weight for positive labels in BCE loss.")
+    # parser.add_argument('-w_pos_label', type=float, default=1.0, help="weight for positive labels in BCE loss.")
+    parser.add_argument('-w_pos_label', nargs="+", help="weight for labels")
     parser.add_argument('-w_sample_label', type=float, default=10000.0)
     parser.add_argument('-label_name', type=str, default='Not exist')
 
@@ -1240,11 +1245,12 @@ def config(opt, justLoad=False):
             ignore_index=-1, reduction='none', weight=opt.w)
 
     
+    opt.w_pos_label = [float(w) for w in opt.w_pos_label]
     if opt.label_class == 1:
         opt.label_loss_fun = nn.BCEWithLogitsLoss(
             reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
     else:
-        opt.label_loss_fun = nn.CrossEntropyLoss(reduction='none') #, pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
+        opt.label_loss_fun = nn.CrossEntropyLoss(reduction='none', weight=torch.tensor(opt.w_pos_label, device=opt.device))
 
     opt.TE_config = {}
     if opt.event_enc:
@@ -1488,7 +1494,6 @@ def cluster(model, data, opt):
             state_data.append(batch[-1])
         if opt.dataset == 'event':
             idcode = batch[-1]
-
         
         sample_event_mask = Utils.sample_event_mask(event_time, opt.sample_gap, opt.device).view(-1)
         non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(2).view(-1) * sample_event_mask
@@ -1496,7 +1501,7 @@ def cluster(model, data, opt):
         enc_out = model(event_type, event_time, state_data=state_data)
         enc_out = enc_out.view(-1, enc_out.size(2))[non_pad_mask.bool()]
 
-        y_score = nn.Sigmoid()(model.y_label)
+        y_score = nn.Softmax()(model.y_label)
         y_score = y_score.view(-1, y_score.size(2))[non_pad_mask.bool()]
 
         ground_label = state_label.flatten()[non_pad_mask.bool()]
@@ -1529,6 +1534,7 @@ def cluster(model, data, opt):
 
     np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
     np.savez(f"./temp_model/{opt.user_prefix}/data/cluster.npz", label)
+    np.savez(f"./temp_model/{opt.user_prefix}/data/label.npz", ground_labels)
     np.savez(f"./temp_model/{opt.user_prefix}/data/idcode.npz", idcodes)
     
     if opt.draw_plt:

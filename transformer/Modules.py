@@ -42,7 +42,53 @@ class ScaledDotProductAttention(nn.Module):
 
         return output, attn
 
+# MLP based on Tphenotype - for the use of cx predictor
+class MLP(nn.Module):
+    def __init__(
+        self,
+        input_size: int,
+        output_size: int,
+        hidden_size: int,
+        num_layers: int,
+        activation=nn.LeakyReLU(),
+        output_func=nn.Identity(),
+        bias=True,
+    ):
+        super().__init__()
 
+        self.input_size = input_size
+        self.output_size = output_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.activation = activation
+        self.output_func = output_func
+        self.bias = bias
+
+        modules = []
+        if self.num_layers == 0:
+            modules = []
+        elif self.num_layers == 1:
+            modules = [nn.Linear(self.input_size, self.output_size, bias=self.bias)]
+        elif self.num_layers >= 2:
+            modules = [nn.Linear(self.input_size, self.hidden_size, bias=self.bias), self.activation]
+            for i in range(0, self.num_layers - 2, 1):  # pylint: disable=unused-variable
+                modules = modules + [nn.Linear(self.hidden_size, self.hidden_size, bias=bias), self.activation]
+
+            modules = modules + [nn.Linear(self.hidden_size, self.output_size, bias=bias)]
+        else:
+            pass
+
+        modules = modules + [self.output_func]
+
+        self.nn = nn.Sequential(*modules)
+
+    def forward(self, data, non_pad_mask, to_detach=0):
+
+        if to_detach:
+            data = data.detach()
+        # out = self.linear1(data* non_pad_mask)* non_pad_mask
+        out = self.nn(data) * non_pad_mask
+        return out
 
 class Predictor(nn.Module):
     """ Prediction of next event type. """

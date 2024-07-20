@@ -103,7 +103,7 @@ class Cluster:
         path = (1 - t) * x1[:, np.newaxis, :] + t * x2[:, np.newaxis, :]
         return path
 
-    def _batch_path_test(self, x1, x2, num=2):
+    def _batch_path_test(self, x1, x2, num=50):
         # x1: batch_size x x_dim
         # x2: batch_size x x_dim
         # paths: batch_size x self.test_num x x_dim
@@ -116,7 +116,6 @@ class Cluster:
         probs = nn.Sigmoid()(self.predictor(paths, full_valid_mask)).detach().cpu().numpy()
         # print(probs.shape)
         # print(probs)
-        
         
         # print(f"probs:{probs}")
         
