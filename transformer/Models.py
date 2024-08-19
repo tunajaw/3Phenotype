@@ -781,6 +781,8 @@ class TEEDAM(nn.Module):
 
         self.d_con = self.d_out_te + self.d_out_dam + self.d_demo + self.noise_size
 
+        print(self.d_out_te, self.d_out_dam, self.d_demo, self.noise_size)
+
         if self.d_con == 0:
             raise Exception('### NO solution! d_con=0')
 
@@ -836,7 +838,7 @@ class TEEDAM(nn.Module):
         non_pad_mask = get_non_pad_mask(
             event_type)  # [B,L,1] 0 for padded elements
         
-        sample_event_mask = Utils.sample_event_mask(event_time, self.pred_gap, self.device)
+        
 
 
         enc = []
@@ -915,7 +917,6 @@ class TEEDAM(nn.Module):
             # enc_last = enc_last if self.sample_label==1 else enc_last.detach() # if it is equal to 2
             # self.y_label = self.pred_label(enc_last, 1) # [B]
 
-            
             
             if self.sample_detach:
                 self.y_label = self.pred_label(

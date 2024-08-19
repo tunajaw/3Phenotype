@@ -13,7 +13,7 @@ import random
 class TEDA(torch.utils.data.Dataset):
     """ Event stream dataset. """
 
-    def __init__(self, data_event, dict_state=None, dim='MHP', data_label='multiclass', have_label=False, have_demo=False, idcode_in_demo=False):
+    def __init__(self, data_event, dict_state=None, dim='MHP', data_label='multiclass', have_label=False, have_demo=False, idcode_in_demo=False, additionals=None):
         """
         Data should be a list of event streams; each event stream is a list of dictionaries;
         each dictionary contains: time_since_start, time_since_last_event, type_event
@@ -49,13 +49,15 @@ class TEDA(torch.utils.data.Dataset):
         if self.have_label:   
             self.label = [[elem['label'] for elem in inst] for inst in data_event]
             #[TODO] revise the sample label 
-            self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in data_event]
+            # self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in data_event]
 
         if self.have_demo:    
             self.demo = [inst for inst in dict_state['demo']]
 
-        if self.idcode_in_demo:    
-            self.idcode = [[inst] * len([elem['type_event'] for elem in _event]) for _event, inst in zip(data_event, dict_state['idcode'])]
+        if self.idcode_in_demo:
+            self.idcode = [[id]*len(label) for label, id in zip(self.label, dict_state['idcode'])]
+            self.cx_time = additionals['cx_time']
+            # self.idcode = [[inst] * len([elem['type_event'] for elem in _event]) for _event, inst in zip(data_event, dict_state['idcode'])]
 
 
     def __len__(self):
@@ -81,7 +83,7 @@ class TEDA(torch.utils.data.Dataset):
 
         if self.idcode_in_demo:
             sample.update({   'idcode':self.idcode[idx]   })
-
+            sample.update({   'cx_time':self.cx_time[idx]   })
         
         return sample
 
@@ -180,14 +182,19 @@ def collate_fn(insts):
         idcode = pad_time(idcode) # ([B,P])
         out.append(idcode)
 
+    if 'cx_time' in insts[0]:
+        cx_time = [inst['cx_time'] for inst in insts] 
+        cx_time = pad_time(cx_time) # ([B,P])
+        out.append(cx_time)
+
     return out
 
 
 
-def get_dataloader(data_event, data_state=None, bs=4, shuffle=True, dim='MHP', data_label='multiclass', balanced=False, state_args=None):
+def get_dataloader(data_event, data_state=None, bs=4, shuffle=True, dim='MHP', data_label='multiclass', balanced=False, state_args=None, additionals=None):
     """ Prepare dataloader. """
 
-    ds = TEDA(data_event, data_state,dim=dim, data_label=data_label,**state_args)
+    ds = TEDA(data_event, data_state,dim=dim, data_label=data_label, additionals=additionals, **state_args)
     
 
     if balanced and hasattr(ds, 'whole_label'):
@@ -224,22 +231,21 @@ def get_dataloader(data_event, data_state=None, bs=4, shuffle=True, dim='MHP', d
             drop_last=True,
             # sampler=sampler,
             # pin_memory=True,
-
         )
 
 
     return dl
 
 
-def combine_dataset_and_create_dataloader(data_events, data_states, bs=4, shuffle=True, dim='MHP', data_label='multiclass', balanced=False, state_args=None):
+def combine_dataset_and_create_dataloader(data_events, data_states, bs=4, shuffle=True, dim='MHP', data_label='multiclass', balanced=False, state_args=None, additionals=None):
     
     if len(data_events) != len(data_states):
         raise ValueError(f"the number of data_event({len(data_events)}) should be equal to the number of data_states ({len(data_states)})")
     
     datasets = []
 
-    for data_event, data_state in zip(data_events, data_states):
-        one_ds = TEDA(data_event, data_state, dim=dim, data_label=data_label, **state_args)
+    for data_event, data_state, additional in zip(data_events, data_states, additionals):
+        one_ds = TEDA(data_event, data_state, dim=dim, data_label=data_label, additionals=additional, **state_args)
         datasets.append(one_ds)
     
     ds = ConcatDataset(datasets)
@@ -264,7 +270,7 @@ def combine_dataset_and_create_dataloader(data_events, data_states, bs=4, shuffl
             batch_size=bs,
             collate_fn=collate_fn,
             # shuffle=shuffle,
-            drop_last=True,
+            drop_last=False,
             sampler=sampler,
             # pin_memory=True,
         )
@@ -276,7 +282,7 @@ def combine_dataset_and_create_dataloader(data_events, data_states, bs=4, shuffl
             batch_size=bs,
             collate_fn=collate_fn,
             shuffle=shuffle,
-            drop_last=True,
+            drop_last=False,
             # sampler=sampler,
             # pin_memory=True,
 

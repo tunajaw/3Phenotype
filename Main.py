@@ -32,7 +32,10 @@ from io import BytesIO
 from PIL import Image
 
 from Cluster.cluster import Cluster
+from Cluster.metrics import get_cls_scores_from_label
 from sklearn.manifold import TSNE
+import seaborn as sns
+import statistics
 
 # Project is specified by <entity/project-name>
 def dl_runs(all_runs, selected_tag=None):
@@ -177,6 +180,8 @@ def prepare_dataloader(opt):
     def load_data_event(name, dict_name):
         """ Load data and prepare dataloader for event data """
         additional_info = {}
+        # for analysis use
+        additionals = {}
 
         with open(name, 'rb') as f:
             data = pickle.load(f, encoding='latin-1')
@@ -195,8 +200,11 @@ def prepare_dataloader(opt):
                 additional_info['dict_map_states'] = data['dict_map_states']
             if 'num_states' in data:
                 additional_info['num_states'] = data['num_states']
+            # combine cx_time into event data
+            if 'cx_time' in data:
+                additionals['cx_time'] = data['cx_time']
 
-        return data[dict_name], additional_info
+        return data[dict_name], additional_info, additionals
 
     def load_data_state(name):
         """ Load data and prepare dataloader for state data """
@@ -224,12 +232,12 @@ def prepare_dataloader(opt):
 
         return data, additional_info
     print('[Info] Loading train data...')
-    train_data, additional_info = load_data_event(
+    train_data, additional_info, train_additionals = load_data_event(
         opt.data + 'train.pkl', 'train')
     print('[Info] Loading dev data...')
-    valid_data, _ = load_data_event(opt.data + 'dev.pkl', 'dev')
+    valid_data, _, valid_additionals = load_data_event(opt.data + 'dev.pkl', 'dev')
     print('[Info] Loading test data...')
-    test_data, _ = load_data_event(opt.data + 'test.pkl', 'test')
+    test_data, _, test_additionals = load_data_event(opt.data + 'test.pkl', 'test')
 
     if opt.per > 0:
         print(f'[info] {opt.per}% of data will be considered')
@@ -260,18 +268,21 @@ def prepare_dataloader(opt):
 
     state_args = {'have_label': opt.sample_label, 'have_demo': opt.demo}
 
+    # additionals = {'cx_time': additional_info['cx_time']} if opt.dataset == 'event' else {}
+
     trainloader = get_dataloader(train_data, data_state=train_state, bs=opt.batch_size, shuffle=True,
-                                  data_label=opt.data_label, balanced=opt.balanced_batch, state_args=state_args)
+                                  data_label=opt.data_label, balanced=opt.balanced_batch, state_args=state_args, additionals=train_additionals)
     testloader = get_dataloader(test_data, data_state=test_state, bs=opt.batch_size,
-                                 shuffle=False, data_label=opt.data_label, balanced=False, state_args=state_args)
+                                 shuffle=False, data_label=opt.data_label, balanced=False, state_args=state_args, additionals=test_additionals)
     validloader = get_dataloader(valid_data, data_state=valid_state, bs=opt.batch_size,
-                                  shuffle=False, data_label=opt.data_label, balanced=False, state_args=state_args)
+                                  shuffle=False, data_label=opt.data_label, balanced=False, state_args=state_args, additionals=valid_additionals)
     
     state_args["idcode_in_demo"] = opt.dataset == 'event'
     print(f"Is idcode in demo? {opt.dataset == 'event'}")
     
     fullloader = combine_dataset_and_create_dataloader([train_data, valid_data, test_data], [train_state, valid_state, test_state],
-                                                       bs=opt.batch_size, shuffle=True, data_label=opt.data_label, balanced=opt.balanced_batch, state_args=state_args)
+                                                       bs=opt.batch_size, shuffle=True, data_label=opt.data_label, balanced=opt.balanced_batch, state_args=state_args, 
+                                                       additionals=[train_additionals, valid_additionals, test_additionals])
 
     return trainloader, validloader, testloader, fullloader, additional_info
 
@@ -334,21 +345,13 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
             log_loss['loss/pred_next_type'] += next_type_loss.item()
             # total_loss.append(next_type_loss)
 
-        # next time prediction
-        if hasattr(model, 'pred_next_time'):
-            non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(-1)
-            sse, sse_norm, sae = Utils.time_loss(
-                model.y_next_time, event_time, non_pad_mask)  # sse, sse_norm, sae
-
-            temp = sse*opt.w_time
-            log_loss['loss/pred_next_time'] += temp.item()
-            # total_loss.append(temp)
 
         # [TOCHECK] multi-class prediction
         if hasattr(model, 'pred_label'):
-
-
+            
             # try to get the closet event time label from state label 
+            # non_pad_mask = non_pad_mask * sample_event_mask
+
             state_label_red = state_label[:, :, None]
             # state_label_red = align(
             #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
@@ -359,6 +362,16 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
             temp = state_label_loss*opt.w_sample_label
             log_loss['loss/pred_label'] += temp.item()  # /event_time.shape[0]
             total_loss.append(temp)
+
+        # next time prediction
+        if hasattr(model, 'pred_next_time'):
+            non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(-1)
+            sse, sse_norm, sae = Utils.time_loss(
+                model.y_next_time, event_time, non_pad_mask)  # sse, sse_norm, sae
+
+            temp = sse*opt.w_time
+            log_loss['loss/pred_next_time'] += temp.item()
+            # total_loss.append(temp)
 
         loss = sum(total_loss)
 
@@ -452,6 +465,8 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             enc_out = model(event_type, event_time, state_data=state_data)
 
             non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(2)
+            sample_event_mask = Utils.sample_event_mask(event_time, 30, opt.device)
+
             total_num_pred += non_pad_mask.sum().item()
             masks_list.append(
                 non_pad_mask[:, 1:].flatten().bool().detach().cpu())  # [*, C]
@@ -502,7 +517,10 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
                 # state_label_red = align(
                 #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
+                # non_pad_mask = non_pad_mask * sample_event_mask
+
                 state_label_red = state_label[:, :, None]
+                
                 # state_label_red = state_label.bool().int()[:,:,None] # [B,L,1]
                 state_label_loss, (y_state_pred, y_state_true, y_state_score) = Utils.state_label_loss(
                     state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, opt.cuda, num_classes=opt.label_class)
@@ -690,6 +708,23 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             'ConfMat': cm_display,
         })
 
+        y_true_binarized = np.eye(opt.label_class+1)[y_state_true]
+        
+        auroc = np.zeros(opt.label_class+1)
+        auprc = np.zeros(opt.label_class+1)
+
+        # Compute class-wise AUROC and AUPRC
+        for i in range(opt.label_class+1):
+            auroc[i] = metrics.roc_auc_score(y_true_binarized[:, i], y_state_score[:, i])
+            auprc[i] = metrics.average_precision_score(y_true_binarized[:, i], y_state_score[:, i])
+
+        # Round the arrays to 4 decimal places
+        auroc_rounded = np.around(auroc, 4)
+        auprc_rounded = np.around(auprc, 4)
+
+        # Print the rounded arrays
+        print(f"AUROC: {auroc_rounded}\nAUPRC: {auprc_rounded}")
+
     return total_event_ll / total_num_event, total_event_rate / total_num_pred, rmse, dict_metrics
 
 
@@ -785,7 +820,6 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
             write_to_summary(
                 dict_metrics_train, opt, i_epoch=opt.i_epoch, prefix='TrainLoss-')
             
-            #[NEXT] modify metric name
             # objective value for HP Tuning
             if 'pred_label/f1-macro' in dict_metrics_test:
                 inter_Obj_val = dict_metrics_test['pred_label/f1-macro']
@@ -945,17 +979,17 @@ def options():
     parser.add_argument('--dam_output_activation', type=str, default='relu')
     parser.add_argument('--dam_output_dims', type=int, default=16)
     parser.add_argument('--dam_n_phi_layers', type=int, default=3)
-    parser.add_argument('--dam_phi_width', type=int, default=128)
+    parser.add_argument('--dam_phi_width', type=int, default=32)
     parser.add_argument('--dam_phi_dropout', type=float, default=0.2)
     parser.add_argument('--dam_n_psi_layers', type=int, default=2)
-    parser.add_argument('--dam_psi_width', type=int, default=64)
-    parser.add_argument('--dam_psi_latent_width', type=int, default=128)
-    parser.add_argument('--dam_dot_prod_dim', type=int, default=64)
+    parser.add_argument('--dam_psi_width', type=int, default=16)
+    parser.add_argument('--dam_psi_latent_width', type=int, default=32)
+    parser.add_argument('--dam_dot_prod_dim', type=int, default=16)
     parser.add_argument('--dam_n_heads', type=int, default=4)
     parser.add_argument('--dam_attn_dropout', type=float, default=0.1)
-    parser.add_argument('--dam_latent_width', type=int, default=64)
+    parser.add_argument('--dam_latent_width', type=int, default=16)
     parser.add_argument('--dam_n_rho_layers', type=int, default=2)
-    parser.add_argument('--dam_rho_width', type=int, default=128)
+    parser.add_argument('--dam_rho_width', type=int, default=32)
     parser.add_argument('--dam_rho_dropout', type=float, default=0.1)
     parser.add_argument('--dam_max_timescale', type=int, default=1000)
     parser.add_argument('--dam_n_positional_dims', type=int, default=16)
@@ -1245,12 +1279,13 @@ def config(opt, justLoad=False):
             ignore_index=-1, reduction='none', weight=opt.w)
 
     
-    opt.w_pos_label = [float(w) for w in opt.w_pos_label]
+    opt.w_pos_label = torch.tensor([float(w) for w in opt.w_pos_label], device=opt.device)
     if opt.label_class == 1:
         opt.label_loss_fun = nn.BCEWithLogitsLoss(
             reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
     else:
-        opt.label_loss_fun = nn.CrossEntropyLoss(reduction='none', weight=torch.tensor(opt.w_pos_label, device=opt.device))
+        opt.label_loss_fun = nn.CrossEntropyLoss(reduction='none', weight=opt.w_pos_label)
+        #opt.label_loss_fun = Utils.focal_loss()
 
     opt.TE_config = {}
     if opt.event_enc:
@@ -1474,11 +1509,11 @@ def cluster(model, data, opt):
     pad_mask = []
     ground_labels = []
     idcodes = []
+    days, late_props = [], []
+    days2, late_props2 = [], []
 
     for batch in tqdm(data, mininterval=2, desc='  - (Cluster encoded data)   ', leave=False):
-
         batch = [x.to(opt.device) for x in batch]
-
         state_data = []
         state_label = None
         event_time, time_gap, event_type = batch[:3]
@@ -1489,14 +1524,19 @@ def cluster(model, data, opt):
             state_time, state_value, state_mod = batch[3:6]
             state_label = batch[6]
         if opt.demo and (opt.dataset == 'event'):
-            state_data.append(batch[-2])
+            state_data.append(batch[-3])
         else:
             state_data.append(batch[-1])
         if opt.dataset == 'event':
-            idcode = batch[-1]
+            idcode = batch[-2]
+            cx_time = batch[-1]
+
+        # print(event_time.shape, event_type.shape)
         
         sample_event_mask = Utils.sample_event_mask(event_time, opt.sample_gap, opt.device).view(-1)
         non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(2).view(-1) * sample_event_mask
+
+        # print(non_pad_mask.shape)
 
         enc_out = model(event_type, event_time, state_data=state_data)
         enc_out = enc_out.view(-1, enc_out.size(2))[non_pad_mask.bool()]
@@ -1506,22 +1546,62 @@ def cluster(model, data, opt):
 
         ground_label = state_label.flatten()[non_pad_mask.bool()]
 
+        # print(state_label, model.y_label.shape, event_time.shape, non_pad_mask.shape)
+        # assert 0
+        # [NEXT] implement early_predict
+        _days, _late_prop = Utils.early_predict(state_label, model.y_label, event_time, cx_time, Utils.get_non_pad_mask(event_time), sac=True)
+        _days2, _late_prop2 = Utils.early_predict(state_label, model.y_label, event_time, cx_time, Utils.get_non_pad_mask(event_time), sac=False)
+
         idcodes.append(idcode.flatten()[non_pad_mask.bool()])
 
         x_corpus.append(enc_out)
         z_corpus.append(y_score)
         pad_mask.append(non_pad_mask)
         ground_labels.append(ground_label)
+        days += _days
+        late_props += _late_prop
+        days2 += _days2
+        late_props2 += _late_prop2
 
-    # clusters
     ground_labels = torch.cat(ground_labels, 0).flatten().cpu().numpy()
     idcodes = torch.cat(idcodes, 0).flatten().cpu().numpy()
     print(f"total {len(ground_labels)} samples (check: x_corpus: {torch.cat(x_corpus, 0).cpu().numpy().shape}, idcode: {idcodes.shape})")
+    # analysis
+    print("sac")
+    print(f"model early predicts cx {np.mean(days) :.2f}+-{statistics.stdev(days) :.2f} days, late predict prop = {np.mean(late_props) :.4f}+-{statistics.stdev(late_props) :.4f}")
+
+    print("non-sac")
+    print(f"model early predicts cx {np.mean(days2) :.2f}+-{statistics.stdev(days2) :.2f} days, late predict prop = {np.mean(late_props2) :.4f}+-{statistics.stdev(late_props2) :.4f}")
+        
+    if opt.draw_plt:
+        sns.kdeplot(x=days)
+        plt.savefig('./imgs/sac_early_pred_days.jpg', format='jpg')
+        sns.kdeplot(x=days2)
+        plt.savefig('./imgs/early_pred_days.jpg', format='jpg')
+        
+        plt.xlim(0, 1)
+        sns.kdeplot(x=late_props)
+        plt.savefig('./imgs/sac_late_pred_prop.jpg', format='jpg')
+        sns.kdeplot(x=late_props2)
+        plt.savefig('./imgs/late_pred_prop.jpg', format='jpg')
+    
+    np.savez(f"./temp_model/{opt.user_prefix}/data/label.npz", ground_labels)
+    np.savez(f"./temp_model/{opt.user_prefix}/data/idcode.npz", idcodes)
+    np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
+    
+
+    # clusters
     cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device, opt.user_prefix)
     label = cluster.cluster()
 
     groups = np.zeros((opt.K, opt.K))
     print(ground_labels.shape, label.shape)
+
+    # supervised clsuter score
+    scores = get_cls_scores_from_label(ground_labels, label)
+    print(f"Purity: {scores['PURITY'] :4f}, RAND: {scores['RAND'] :4f}, MI: {scores['MI'] : 4f}")
+
+    # cluster assignment
     for ground, _label in zip(ground_labels, label):
         # print(ground)
         # print(_label)
@@ -1532,10 +1612,7 @@ def cluster(model, data, opt):
 
     os.makedirs(f"./temp_model/{opt.user_prefix}/data", exist_ok=True)
 
-    np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
     np.savez(f"./temp_model/{opt.user_prefix}/data/cluster.npz", label)
-    np.savez(f"./temp_model/{opt.user_prefix}/data/label.npz", ground_labels)
-    np.savez(f"./temp_model/{opt.user_prefix}/data/idcode.npz", idcodes)
     
     if opt.draw_plt:
         print(f"{torch.cat(x_corpus, 0).cpu().numpy().shape}, {label.shape}")
@@ -1556,7 +1633,7 @@ def main():
 
     print(opt.device)
 
-    torch.manual_seed(42)
+    torch.manual_seed(888)
 
     if opt.wandb:
         wandb.login()
@@ -1633,13 +1710,13 @@ def main():
 
     """ optimizer and scheduler """
     optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
-                           opt.lr, betas=(0.9, 0.999), eps=1e-05, weight_decay=opt.weight_decay)
+                           opt.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=opt.weight_decay)
    
     if opt.lr_scheduler == 'StepLR':
         scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
     elif opt.lr_scheduler == 'CosineAnnealingLR':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=10, eta_min=0.00001)
+            optimizer, T_max=10, eta_min=1e-10)
 
     """ number of parameters """
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

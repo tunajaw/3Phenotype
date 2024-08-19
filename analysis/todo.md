@@ -50,7 +50,8 @@
 
 * data imbalance
     - [] Why predictor always only predict 0 or 2?
-        - [] add weight at the predictor
+        - [x] add weight at the predictor
+        - [] fine tuning lr
     - [] find of how unsupervised learning train the predictor
 
 * consider more biomarkers

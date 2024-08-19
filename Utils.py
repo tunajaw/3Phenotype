@@ -6,7 +6,44 @@ import torch.nn.functional as F
 from transformer.Models import get_non_pad_mask
 from transformer import Constants
 
-import numpy as np
+import numpy as np 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# from [https://github.com/vandit15/Class-balanced-loss-pytorch/blob/master/class_balanced_loss.py]
+def focal_loss(labels, logits, alpha, gamma):
+    """Compute the focal loss between `logits` and the ground truth `labels`.
+
+    Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
+    where pt is the probability of being classified to the true class.
+    pt = p (if true class), otherwise pt = 1 - p. p = sigmoid(logit).
+
+    Args:
+      labels: A float tensor of size [batch, num_classes].
+      logits: A float tensor of size [batch, num_classes].
+      alpha: A float tensor of size [batch_size]
+        specifying per-example weight for balanced cross entropy.
+      gamma: A float scalar modulating loss from hard and easy examples.
+
+    Returns:
+      focal_loss: A float32 scalar representing normalized total loss.
+    """    
+    BCLoss = nn.cross_entropy(
+            ignore_index=-1, reduction='none', weight=alpha, )
+
+    if gamma == 0.0:
+        modulator = 1.0
+    else:
+        modulator = torch.exp(-gamma * labels * logits - gamma * torch.log(1 + 
+            torch.exp(-1.0 * logits)))
+
+    loss = modulator * BCLoss
+
+    weighted_loss = alpha * loss
+    focal_loss = torch.sum(weighted_loss)
+
+    focal_loss /= torch.sum(labels)
+    return focal_loss
 
 def sample_event_mask(time, gap, device):
     phase = time // gap
@@ -1032,11 +1069,6 @@ def sahp_log_likelihood_test(model, embed_info, seq_times, seq_types,n_mc_sample
 
     # res = torch.sum(- log_sum + integral_)
 
-
-
-
-
-
     return example
 
 def state_label_loss(state_label, prediction, non_pad_mask, loss_fun, cuda=True, num_classes=1, pred_last=False):
@@ -1167,3 +1199,69 @@ def state_label_loss(state_label, prediction, non_pad_mask, loss_fun, cuda=True,
 
 
     return loss.sum(), (y_pred, y_true, y_score)
+
+
+
+def early_predict(labels, pred_labels, event_times, cx_times, non_pad_masks, sac=True, track_days=180):
+    '''
+    Analysis - how the model eary predict the cx
+    input:
+        - label: ground truth label. [B, L]
+        - pred_label: predicted label. [B, L]
+        - event_time: time of ewach visit. [B, L]
+        - cx_time: complicaiton time. list: [B(*)]
+        - non_pad_mask: non pad mask. [B, L]
+        - sac: If only analysis first cx of each patient? bool
+        - plot: plot histogram plot bool
+        - track_days: cx pred days int
+    output:
+        - (o1): average days, average late proportion. Tuple(2)
+    '''
+    # if no cx in whole batch, early return
+    if not cx_times.shape[1]:
+        return [], []
+
+    days, late_prop = [], []
+
+    pred_labels = torch.argmax(pred_labels, dim=-1)
+    non_pad_masks = non_pad_masks[:, :, 0].bool()
+
+    patients, _ = labels.shape
+    # print(labels.shape, pred_labels.shape, event_times.shape, cx_times.shape, non_pad_masks.shape)
+    if (labels.shape[0] == patients) and (pred_labels.shape[0] == patients) and (event_times.shape[0] == patients) and (cx_times.shape[0] == patients) and (non_pad_masks.shape[0] == patients):
+        1
+    else:
+        assert 0
+
+    # print(f"CX: {cx_times}")
+
+    for label, pred_label, event_time, cx_time, non_pad_mask in zip(labels, pred_labels, event_times, cx_times, non_pad_masks):
+        if sac:
+            cx_time = torch.tensor([cx_time[0]])
+        else:
+            cx_time = cx_time.cpu()
+        
+        for _cx_time in cx_time:
+            # ignore Constants.PAD (0). Also, since label didn't predict
+            if _cx_time:
+                # print(_cx_time, track_days)
+                # print((_cx_time - track_days).numpy())
+                # print(event_time)
+                # print(non_pad_mask)
+                # print(label)
+                # print(pred_label)
+                _from, _to = max(0.0, float((_cx_time - track_days).numpy())), _cx_time
+                _valid_times = (_from <= event_time) & (event_time < _to)
+                # print(non_pad_mask)
+                valid_pred_time = event_time[non_pad_mask & _valid_times]
+                correct_pred_time = event_time[non_pad_mask & (label == pred_label) & _valid_times]
+                correct_pred_label = label[non_pad_mask & (label == pred_label) & _valid_times]
+                # print(f"cor: {correct_pred_time}, {correct_pred_label}")
+                if correct_pred_time.numel():
+                    assert correct_pred_label[0] != 0
+                    days.append((_cx_time - correct_pred_time[0]).item())
+                    late_prop.append(((correct_pred_time[0] - valid_pred_time[0]) / (_cx_time - valid_pred_time[0])).item())
+                else:
+                    late_prop.append(1.0)
+        
+    return days, late_prop
