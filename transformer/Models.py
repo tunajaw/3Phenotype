@@ -781,7 +781,7 @@ class TEEDAM(nn.Module):
 
         self.d_con = self.d_out_te + self.d_out_dam + self.d_demo + self.noise_size
 
-        print(self.d_out_te, self.d_out_dam, self.d_demo, self.noise_size)
+        print(f"size: {(self.d_out_te, self.d_out_dam, self.d_demo, self.noise_size)}")
 
         if self.d_con == 0:
             raise Exception('### NO solution! d_con=0')
@@ -885,8 +885,9 @@ class TEEDAM(nn.Module):
             # enc[0] = enc[0] + torch.randn_like(enc[0]) * 0.1
 
         if hasattr(self, 'demo_encoder'):
-            enc.append(self.demo_encoder(
-                state_data[-1], 1)[:, None, :].repeat(1, event_time.shape[1], 1))
+            self.event_enc = self.demo_encoder(
+                state_data[-1], 1)[:, None, :].repeat(1, event_time.shape[1], 1)
+            enc.append(self.event_enc)
 
         enc = torch.cat(enc, dim=-1)
 

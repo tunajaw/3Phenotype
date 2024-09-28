@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import transformer.Constants as Constants
 import math
+import matplotlib.pyplot as plt
 
 import Utils
 
@@ -171,6 +172,24 @@ class CIF_sahp(nn.Module):
         # cell_t = (converge_point + (staxrt_point - converge_point) * torch.exp(- omega * duration_t))
 
         return cell_t
+    
+    def save_line_chart(self, x, y, filename="line_chart.png"):
+        # Create the plot
+        plt.figure()
+        plt.plot(x, y, marker='o', linestyle='-', color='b', label='Line chart')
+        
+        # Add labels and title (optional)
+        plt.xlabel('X-axis (seq_times)')
+        plt.ylabel('Y-axis (true_intens_at_evs)')
+        plt.title('Line Chart of seq_times vs true_intens_at_evs')
+        
+        # Add a grid and legend (optional)
+        plt.grid(True)
+        plt.legend()
+        
+        # Save the plot to a file
+        plt.savefig(filename)
+        plt.close()
 
     def forward(self, embed_info, seq_times, seq_types, non_pad_mask):
 
@@ -197,6 +216,11 @@ class CIF_sahp(nn.Module):
         if self.mod == 'single':
             # seq_onehot_types=torch.ones_like(seq_times).unsqueeze(-1) # [B,L,1]
             seq_onehot_types = (seq_times > 0).long().unsqueeze(-1)  # [B,L,1]
+            # print(seq_types.shape)
+            # print(seq_times)
+            # print(seq_times.shape)
+            # print(seq_onehot_types.flatten(1))
+            # assert 0
 
         elif self.mod == 'ml':
 
@@ -206,6 +230,13 @@ class CIF_sahp(nn.Module):
         elif self.mod == 'mc':
             seq_onehot_types = nn.functional.one_hot(
                 seq_types, num_classes=self.n_cifs+1)[:, :, 1:].type(torch.float)
+        
+        # mix seq_times and event_tiems
+        elif self.mod == 'ml_plus':
+            ml_seq_onehot_types = seq_types
+            sng_seq_onehot_types = (seq_times > 0).long().unsqueeze(-1)
+            seq_onehot_types = torch.concat((ml_seq_onehot_types, sng_seq_onehot_types), dim=-1)
+            
 
         # seq_onehot_types = nn.functional.one_hot(seq_types, num_classes=self.num_types+1)[:,:,1:].type(torch.float)
         # print(f"types: {seq_types.shape}")
@@ -233,6 +264,13 @@ class CIF_sahp(nn.Module):
         # log of intensity
         cell_t = self.state_decay(
             self.converge_point, self.start_point, self.omega, dt_seq[:, :, None])  # [B,L-1,d_in]
+        
+        # print(f"embed event: {embed_event.shape}")
+        # print(f"start point: {self.start_point.shape}")
+        # print(f"dt: {dt_seq[:, :, None].shape}")
+        # print(f"cell t: {cell_t.shape}")
+        # print(f"intensities: {self.intensity_layer(cell_t).shape}")
+        
 
         # Get the intensity process
         # intens_at_evs = self.intensity_layer(torch.cat([cell_t,cell_t_state],dim=-1)) # [B,L-1,n_cif]
@@ -242,6 +280,16 @@ class CIF_sahp(nn.Module):
 
         # [B,L-1,n_cif] intensity at occurred types
         true_intens_at_evs = intens_at_evs * seq_onehot_types[:, 1:, :]
+        # print(true_intens_at_evs.shape)
+        # print(non_pad_mask.shape)
+        # B, _, F = true_intens_at_evs.shape
+        # print(seq_times[0, 1:].shape)
+        # print(non_pad_mask[0, 1:].gt(0).shape)
+        # print(true_intens_at_evs[0, :, 0].shape)
+        # for b in range(1):
+        #     for f in range(F):
+        #         self.save_line_chart(x=seq_times[b, 1:][non_pad_mask[b, 1:].gt(0)], y=true_intens_at_evs[b, :, f][non_pad_mask[b, 1:].gt(0)], filename=f"./imgs/{b}-{f}.jpg")
+        # assert 0
         intens_at_evs_sumK = torch.sum(true_intens_at_evs, dim=-1)  # [B,L-1]
         intens_at_evs_sumK.masked_fill_(~non_pad_mask[:, 1:].bool(), 1.0)
 

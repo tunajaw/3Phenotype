@@ -331,8 +331,12 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
 
         # CIF decoder
         if hasattr(model, 'event_decoder'):
-            log_sum, integral_ = model.event_decoder(
-                enc_out, event_time, event_type, non_pad_mask)
+            if opt.use_TE_to_decode: 
+                log_sum, integral_ = model.event_decoder(
+                    model.event_enc, event_time, event_type, non_pad_mask)
+            else:
+                log_sum, integral_ = model.event_decoder(
+                    enc_out, event_time, event_type, non_pad_mask)
             loss_event_pp = (-torch.sum(log_sum - integral_)) * opt.w_event
             log_loss['loss/event_decoder'] += loss_event_pp.item()
             total_loss.append(loss_event_pp)
@@ -484,6 +488,12 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
             if hasattr(model, 'event_decoder'):
                 log_sum, integral_ = model.event_decoder(
                     enc_out, event_time, event_type, non_pad_mask)
+                if opt.use_TE_to_decode: 
+                    log_sum, integral_ = model.event_decoder(
+                        model.event_enc, event_time, event_type, non_pad_mask)
+                else:
+                    log_sum, integral_ = model.event_decoder(
+                        enc_out, event_time, event_type, non_pad_mask)
 
                 total_event_ll += torch.sum(log_sum - integral_)
 
@@ -963,7 +973,7 @@ def options():
     parser.add_argument('-time_enc', type=str, choices=[
                         'sum', 'concat', 'none'], default='concat', help='strategy for time encoding')
     # TEE config
-    parser.add_argument('--te_d_mark', type=int, default=8, help="encoding dimension of TEE")
+    parser.add_argument('--te_d_mark', type=int, default=64, help="encoding dimension of TEE")
     parser.add_argument('--te_d_time', type=int, default=8, help="time encoding dimension of TEE. should be the same as te_d_mark if strategy is sum")
 
     parser.add_argument('--te_d_rnn', type=int, default=256, help="ignore")
@@ -1013,7 +1023,7 @@ def options():
 
     # CIFs
     parser.add_argument(
-        '-mod', type=str, choices=['single', 'mc', 'ml', 'none'], default='single', help='LOSS TYPE for CIFs')
+        '-mod', type=str, choices=['single', 'mc', 'ml', 'none', 'ml_plus'], default='single', help='LOSS TYPE for CIFs')
     parser.add_argument('-int_dec', type=str, choices=[
                         'thp', 'sahp'], default='sahp', help='specify the intensity decoder')
     parser.add_argument('-w_event', type=float, default=1, help="weight for event decoder loss")
@@ -1028,9 +1038,11 @@ def options():
 
     parser.add_argument('-mark_detach',  type=int,
                         choices=[0, 1], default=0, help='0: mark not detached, 1: mark detached')
+    
+    parser.add_argument('-use_TE_to_decode', type=int, choices=[0, 1], default=0, help='0: use all encoded data to decode, 1: only use TE')
 
     # times
-    parser.add_argument('-w_time', type=float, default=1.0, help="weight for time prediction loss")
+    parser.add_argument('-w_time', type=float, default=1.0, help="weight for time prediction loss" )
 
     # final sample label
     parser.add_argument('-label_class', type=int, default=1, help='number of classes of the label')
@@ -1428,7 +1440,7 @@ def config(opt, justLoad=False):
     opt.demo_config = {}
     if opt.demo:
         opt.demo_config['num_demos'] = additional_info['num_demos']
-        opt.demo_config['d_demo'] = 4
+        opt.demo_config['d_demo'] = min(4, additional_info['num_demos'])
 
     opt.CIF_config = {}
     if opt.mod != 'none':
@@ -1437,6 +1449,8 @@ def config(opt, justLoad=False):
 
         if opt.CIF_config['mod'] == 'single':
             opt.CIF_config['n_cifs'] = 1 # opt.label_class
+        elif opt.CIF_config['mod'] == 'ml_plus':
+            opt.CIF_config['n_cifs'] = opt.num_marks + 1
         else:
             opt.CIF_config['n_cifs'] = opt.num_marks
 
@@ -1509,6 +1523,8 @@ def cluster(model, data, opt):
     pad_mask = []
     ground_labels = []
     idcodes = []
+    full_labels = []
+    full_idcodes = []
     days, late_props = [], []
     days2, late_props2 = [], []
 
@@ -1535,6 +1551,7 @@ def cluster(model, data, opt):
         
         sample_event_mask = Utils.sample_event_mask(event_time, opt.sample_gap, opt.device).view(-1)
         non_pad_mask = Utils.get_non_pad_mask(event_type).squeeze(2).view(-1) * sample_event_mask
+        full_data_mask = Utils.get_non_pad_mask(event_type).squeeze(2).view(-1)
 
         # print(non_pad_mask.shape)
 
@@ -1545,6 +1562,8 @@ def cluster(model, data, opt):
         y_score = y_score.view(-1, y_score.size(2))[non_pad_mask.bool()]
 
         ground_label = state_label.flatten()[non_pad_mask.bool()]
+        full_label = state_label.flatten()[full_data_mask.bool()]
+        full_idcode = idcode.flatten()[full_data_mask.bool()]
 
         # print(state_label, model.y_label.shape, event_time.shape, non_pad_mask.shape)
         # assert 0
@@ -1553,18 +1572,22 @@ def cluster(model, data, opt):
         _days2, _late_prop2 = Utils.early_predict(state_label, model.y_label, event_time, cx_time, Utils.get_non_pad_mask(event_time), sac=False)
 
         idcodes.append(idcode.flatten()[non_pad_mask.bool()])
+        full_idcodes.append(full_idcode)
 
         x_corpus.append(enc_out)
         z_corpus.append(y_score)
         pad_mask.append(non_pad_mask)
         ground_labels.append(ground_label)
+        full_labels.append(full_label)
         days += _days
         late_props += _late_prop
         days2 += _days2
         late_props2 += _late_prop2
 
+    full_labels = torch.cat(full_labels, 0).flatten().cpu().numpy()
     ground_labels = torch.cat(ground_labels, 0).flatten().cpu().numpy()
     idcodes = torch.cat(idcodes, 0).flatten().cpu().numpy()
+    full_idcodes = torch.cat(full_idcodes, 0).flatten().cpu().numpy()
     print(f"total {len(ground_labels)} samples (check: x_corpus: {torch.cat(x_corpus, 0).cpu().numpy().shape}, idcode: {idcodes.shape})")
     # analysis
     print("sac")
@@ -1585,10 +1608,12 @@ def cluster(model, data, opt):
         sns.kdeplot(x=late_props2)
         plt.savefig('./imgs/late_pred_prop.jpg', format='jpg')
     
+    os.makedirs(f"./temp_model/{opt.user_prefix}/data", exist_ok=True)
     np.savez(f"./temp_model/{opt.user_prefix}/data/label.npz", ground_labels)
+    np.savez(f"./temp_model/{opt.user_prefix}/data/full_label.npz", full_labels)
     np.savez(f"./temp_model/{opt.user_prefix}/data/idcode.npz", idcodes)
+    np.savez(f"./temp_model/{opt.user_prefix}/data/full_idcode.npz", full_idcodes)
     np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
-    
 
     # clusters
     cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device, opt.user_prefix)
@@ -1610,7 +1635,6 @@ def cluster(model, data, opt):
     for i in groups:
         print(f"{' '.join([str(j) for j in i])}")
 
-    os.makedirs(f"./temp_model/{opt.user_prefix}/data", exist_ok=True)
 
     np.savez(f"./temp_model/{opt.user_prefix}/data/cluster.npz", label)
     

@@ -9,8 +9,10 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON=" -demo -data_label multilabel -epoch 100 -per 100 -label_class 6 -K 7 -cluster 1 -sample_gap 90 -draw_plt 1 -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
-HPs="-batch_size 16  -lr 0.0001 -weight_decay 0.1 -w_pos_label 0.12372216 0.42329352 0.16266639 1.26639974 2.2521368  1.98360672 0.78817468"
+COMMON=" -demo -data_label multilabel -epoch 100 -per 100 -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 0 -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
+HPs="-batch_size 16 -lr 0.0001 -weight_decay 0.1 -w_pos_label 0.01522564 0.36339237 0.21814051 0.94168525 3.02247956 1.97214451 0.46693216"
+
+# sanc : 0.01522564 0.36339237 0.21814051 0.94168525 3.02247956 1.97214451 0.46693216
 
 # inverse: 0.0141619  0.40760237 0.09645988 1.8442039  1.73344863 2.31126484
 
@@ -39,6 +41,16 @@ TEDA__none="-event_enc 1    -state          -mod none        -next_mark 1     -m
 # Only DAM with label loss
 DA__base="-event_enc 0    -state          -mod none      -next_mark 1     -mark_detach 1      -sample_label 1"
 
+# TEE with AE loss and label loss
+TE__pp_ml="-event_enc 1       -mod ml        -next_mark 1     -mark_detach 1      -sample_label 1"
+
+# TEE and label loss(equation 4 in the paper)
+TE__pp_single_mark="-event_enc 1      -mod single    -next_mark 1     -mark_detach 0      -sample_label 1"
+
+# DAM + TEE with PP(single) and label loss(equation 4 in the paper)
+TEDA__pp_ml_plus="-event_enc 1    -state          -mod ml_plus    -next_mark 1     -mark_detach 0      -sample_label 1"
+
+EXPER="-use_TE_to_decode 1"
 
 
 # for different splits (raindrop-same splits as raindro's paper)    
@@ -60,13 +72,38 @@ do
         # echo "TEE+DAM (AE)"            
         # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_AE.log 2>&1
 
+        echo "TEE+DAM (MLplus) - TE only"            
+        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "[$USER_PREFIX-TEDA_mlplus_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML_plus.log 2>&1
+
+        # TEDA__pp_single_mark (TEE+DAM (single) in Table 5)     
+        echo "TEE+DAM (single) - TE only"                   
+        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA_single_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_single.log 2>&1  
+
+        # TEDA__pp_ml (TEE+DAM (ML) in Table 5)  
+        echo "TEE+DAM (ML) - TE only"            
+        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA_ml_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML.log 2>&1
+
+
+        # TEDA__pp_ml_plus (TEE+DAM (ML+single mark) in Table 5)  
+        echo "TEE+DAM (MLplus)"            
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "[$USER_PREFIX-TEDA_mlplus]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML_plus.log 2>&1
+
         # TEDA__pp_single_mark (TEE+DAM (single) in Table 5)     
         echo "TEE+DAM (single)"                   
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_single.log 2>&1  
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA_single]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_single.log 2>&1  
 
-        # # TEDA__pp_ml (TEE+DAM (ML) in Table 5)  
-        # echo "TEE+DAM (ML)"            
-        # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA__pp_ml-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML.log 2>&1
+        # TEDA__pp_ml (TEE+DAM (ML) in Table 5)  
+        echo "TEE+DAM (ML)"            
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA_ml]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML.log 2>&1
+
+
+        # # TE__pp_single_mark (TEE+DAM (single) in Table 5)     
+        # echo "TEE (single)"                   
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_single_mark -user_prefix "[$USER_PREFIX-TE__pp_single_mark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TE_single.log 2>&1  
+
+        # #TE__pp_ml (TEE+DAM (ML) in Table 5)  
+        # echo "TEE (ML)"            
+        # python Main.py  $HPs $COEFS $SETTING $COMMON $TE__pp_ml -user_prefix "[$USER_PREFIX-TE__pp_ml-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TE_ML.log 2>&1
 
 
 done
