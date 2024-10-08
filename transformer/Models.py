@@ -673,7 +673,7 @@ class TEEDAM(nn.Module):
 
             demo_config=False,
             device=torch.device('cpu'),
-            diag_offset=1
+            diag_offset=1,
     ):
         super().__init__()
 
@@ -693,7 +693,6 @@ class TEEDAM(nn.Module):
         self.device = device
 
         self.pred_gap = 30
-
         self.temp = {}
 
         # TRANSFORMER ENCODER ************************************************************
@@ -811,8 +810,12 @@ class TEEDAM(nn.Module):
         if CIF_config:
 
             if CIF_config['type'] == 'sahp':
-                self.event_decoder = CIF_sahp(
-                    self.d_con, CIF_config['n_cifs'], mod_CIF=CIF_config['mod'])
+                if CIF_config['only_use_TE']:
+                    self.event_decoder = CIF_sahp(
+                        self.d_out_te, CIF_config['n_cifs'], mod_CIF=CIF_config['mod'])
+                else:
+                    self.event_decoder = CIF_sahp(
+                        self.d_con, CIF_config['n_cifs'], mod_CIF=CIF_config['mod'])
             elif CIF_config['type'] == 'thp':
                 self.event_decoder = CIF_thp(self.d_con, CIF_config['n_cifs'])
 
@@ -844,9 +847,9 @@ class TEEDAM(nn.Module):
         enc = []
 
         if hasattr(self, 'TE'):
-            x = self.TE(event_type, event_time, non_pad_mask)
+            self.event_enc = self.TE(event_type, event_time, non_pad_mask)
             # x = x + torch.randn_like(x)*0 # [B,L,nosie_size]
-            enc.append(x)
+            enc.append(self.event_enc)
 
         # # [B,L,d_mark] <- [B,L], [B,L], [B,L,1]
         # if self.event_enc:
@@ -885,9 +888,9 @@ class TEEDAM(nn.Module):
             # enc[0] = enc[0] + torch.randn_like(enc[0]) * 0.1
 
         if hasattr(self, 'demo_encoder'):
-            self.event_enc = self.demo_encoder(
+            demo_enc = self.demo_encoder(
                 state_data[-1], 1)[:, None, :].repeat(1, event_time.shape[1], 1)
-            enc.append(self.event_enc)
+            enc.append(demo_enc)
 
         enc = torch.cat(enc, dim=-1)
 

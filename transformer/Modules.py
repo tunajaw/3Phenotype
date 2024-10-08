@@ -131,10 +131,8 @@ class CIF_sahp(nn.Module):
 
     def __init__(self, d_in, n_cifs, mod_CIF='mc'):
         super().__init__()
-
         self.d_in = d_in
         self.n_cifs = n_cifs
-
         self.n_mc_samples = 100
         self.mod = mod_CIF
 

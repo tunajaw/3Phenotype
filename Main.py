@@ -486,8 +486,6 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
             # CIF decoder
             if hasattr(model, 'event_decoder'):
-                log_sum, integral_ = model.event_decoder(
-                    enc_out, event_time, event_type, non_pad_mask)
                 if opt.use_TE_to_decode: 
                     log_sum, integral_ = model.event_decoder(
                         model.event_enc, event_time, event_type, non_pad_mask)
@@ -1446,6 +1444,7 @@ def config(opt, justLoad=False):
     if opt.mod != 'none':
         opt.CIF_config['mod'] = opt.mod
         opt.CIF_config['type'] = opt.int_dec
+        opt.CIF_config['only_use_TE'] = opt.use_TE_to_decode
 
         if opt.CIF_config['mod'] == 'single':
             opt.CIF_config['n_cifs'] = 1 # opt.label_class
@@ -1657,7 +1656,7 @@ def main():
 
     print(opt.device)
 
-    torch.manual_seed(888)
+    torch.manual_seed(2024)
 
     if opt.wandb:
         wandb.login()

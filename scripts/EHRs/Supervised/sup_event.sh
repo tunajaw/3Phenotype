@@ -73,20 +73,20 @@ do
         # python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__nextmark -user_prefix "[$USER_PREFIX-TEDA__nextmark-concat]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_AE.log 2>&1
 
         echo "TEE+DAM (MLplus) - TE only"            
-        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "[$USER_PREFIX-TEDA_mlplus_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML_plus.log 2>&1
+        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "[$USER_PREFIX-TEDA_mlplus_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_MLplus_TEOnly.log 2>&1
 
         # TEDA__pp_single_mark (TEE+DAM (single) in Table 5)     
         echo "TEE+DAM (single) - TE only"                   
-        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA_single_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_single.log 2>&1  
+        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_single_mark -user_prefix "[$USER_PREFIX-TEDA_single_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_single_TEOnly.log 2>&1  
 
         # TEDA__pp_ml (TEE+DAM (ML) in Table 5)  
         echo "TEE+DAM (ML) - TE only"            
-        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA_ml_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML.log 2>&1
+        python Main.py  $EXPER $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml -user_prefix "[$USER_PREFIX-TEDA_ml_teOnly]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML_TEOnly.log 2>&1
 
 
         # TEDA__pp_ml_plus (TEE+DAM (ML+single mark) in Table 5)  
         echo "TEE+DAM (MLplus)"            
-        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "[$USER_PREFIX-TEDA_mlplus]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_ML_plus.log 2>&1
+        python Main.py  $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "[$USER_PREFIX-TEDA_mlplus]" -time_enc concat -wandb_tag RD75 > logs/Supervised/TEDA_MLplus.log 2>&1
 
         # TEDA__pp_single_mark (TEE+DAM (single) in Table 5)     
         echo "TEE+DAM (single)"                   
