@@ -11,6 +11,9 @@ import Utils
 
 from transformer.Modules import  Predictor, CIF_sahp, MLP_state, CumulativeSetAttentionLayer, CIF_thp, MLP
 
+from .Exp_models.TEE.AttNHP import AttNHP
+from .Exp_models.ITSE.mTAN import mTAN_Enc
+
 
 def get_non_pad_mask(seq):
     """ Get the non-padding positions. """
@@ -651,6 +654,9 @@ class DeepAttensionModule(nn.Module):
         # )
         # # torch.print(torch.shape(output), torch.shape(mask))
         # output._keras_mask = predictions_mask
+        # print(state_data[0].shape)
+        # print(output.shape)
+        # assert 0
         return output  # * non_pad_mask
 
 
@@ -697,28 +703,56 @@ class TEEDAM(nn.Module):
 
         # TRANSFORMER ENCODER ************************************************************
         if TE_config:
-            self.TE = TEE(
-                # num_types = TE_config['num_types'],
+            if TE_config['type'] == 'THP':
+                print("TEE: THP")
+                self.TE = TEE(
+                    # num_types = TE_config['num_types'],
 
-                n_marks=TE_config['n_marks'],
-                d_type_emb=TE_config['d_type_emb'],
+                    n_marks=TE_config['n_marks'],
+                    d_type_emb=TE_config['d_type_emb'],
 
-                time_enc=TE_config['time_enc'],
-                d_time=TE_config['d_time'],
+                    time_enc=TE_config['time_enc'],
+                    d_time=TE_config['d_time'],
 
-                d_inner=TE_config['d_inner'],
-                n_layers=TE_config['n_layers'],
-                n_head=TE_config['n_head'],
-                d_k=TE_config['d_k'],
-                d_v=TE_config['d_v'],
-                dropout=TE_config['dropout'],
+                    d_inner=TE_config['d_inner'],
+                    n_layers=TE_config['n_layers'],
+                    n_head=TE_config['n_head'],
+                    d_k=TE_config['d_k'],
+                    d_v=TE_config['d_v'],
+                    dropout=TE_config['dropout'],
 
-                # reg=False,
-                device=self.device,
-                diag_offset=diag_offset
+                    # reg=False,
+                    device=self.device,
+                    diag_offset=diag_offset
 
 
-            )
+                )
+            elif TE_config['type'] == 'AttNHP':
+                print("TEE: AttNHP")
+                self.TE = AttNHP(
+                    # num_types = TE_config['num_types'],
+
+                    n_marks=TE_config['n_marks'],
+                    d_type_emb=TE_config['d_type_emb'],
+
+                    time_enc=TE_config['time_enc'],
+                    d_time=TE_config['d_time'],
+
+                    d_inner=TE_config['d_inner'],
+                    n_layers=TE_config['n_layers'],
+                    n_head=TE_config['n_head'],
+                    # d_k=TE_config['d_k'],
+                    # d_v=TE_config['d_v'],
+                    dropout=TE_config['dropout'],
+
+                    # reg=False,
+                    device=self.device,
+                    diag_offset=diag_offset,
+
+                    use_norm=False
+                )
+            else:
+                raise NotImplementedError(f"TEE type '{TE_config['type']}' is not implemented.")
 
             self.d_out_te = self.TE.d_model
 
@@ -730,43 +764,63 @@ class TEEDAM(nn.Module):
 
             n_heads_DA = 2
             psi_width = 4
-            self.DAM = DeepAttensionModule(
-                output_activation=DAM_config['output_activation'],
-                output_dims=DAM_config['output_dims'],
 
-                # MLP encoder for combined values
-                n_phi_layers=DAM_config['n_phi_layers'],
-                phi_width=DAM_config['phi_width'],
-                phi_dropout=DAM_config['phi_dropout'],
+            if DAM_config['type'] == 'SeFT':
+                print("DAM: SeFT")
+                self.DAM = DeepAttensionModule(
+                    output_activation=DAM_config['output_activation'],
+                    output_dims=DAM_config['output_dims'],
 
-                # Cumulative Set Attention Layer
-                n_psi_layers=DAM_config['n_psi_layers'],
-                psi_width=DAM_config['psi_width'],
-                psi_latent_width=DAM_config['psi_latent_width'],
+                    # MLP encoder for combined values
+                    n_phi_layers=DAM_config['n_phi_layers'],
+                    phi_width=DAM_config['phi_width'],
+                    phi_dropout=DAM_config['phi_dropout'],
 
-                dot_prod_dim=DAM_config['dot_prod_dim'],
-                n_heads=DAM_config['n_heads'],
-                attn_dropout=DAM_config['attn_dropout'],
-                latent_width=DAM_config['latent_width'],
+                    # Cumulative Set Attention Layer
+                    n_psi_layers=DAM_config['n_psi_layers'],
+                    psi_width=DAM_config['psi_width'],
+                    psi_latent_width=DAM_config['psi_latent_width'],
 
-                n_rho_layers=DAM_config['n_rho_layers'],
-                rho_width=DAM_config['rho_width'],
-                rho_dropout=DAM_config['rho_dropout'],
+                    dot_prod_dim=DAM_config['dot_prod_dim'],
+                    n_heads=DAM_config['n_heads'],
+                    attn_dropout=DAM_config['attn_dropout'],
+                    latent_width=DAM_config['latent_width'],
 
-
-
-                max_timescale=DAM_config['max_timescale'],
-                d_time=DAM_config['n_positional_dims'],
-                num_mods=DAM_config['num_mods'],
-                num_demos=DAM_config['num_demos'],
-
-                online=DAM_config['online'],
-                device=self.device,
+                    n_rho_layers=DAM_config['n_rho_layers'],
+                    rho_width=DAM_config['rho_width'],
+                    rho_dropout=DAM_config['rho_dropout'],
 
 
-            )
-            self.d_out_dam = self.DAM.phi_width * self.DAM.n_heads
-            self.d_out_dam = self.DAM.rho_width
+
+                    max_timescale=DAM_config['max_timescale'],
+                    d_time=DAM_config['n_positional_dims'],
+                    num_mods=DAM_config['num_mods'],
+                    num_demos=DAM_config['num_demos'],
+
+                    online=DAM_config['online'],
+                    device=self.device,
+
+
+                )
+                self.d_out_dam = self.DAM.phi_width * self.DAM.n_heads
+                self.d_out_dam = self.DAM.rho_width
+            elif DAM_config['type'] == 'mTAN':
+                print("DAM: mTAN")
+                # Here, we only consider fixed reference time points r
+                self.DAM = mTAN_Enc(
+                    input_dim=DAM_config['num_mods'],
+                    w=diag_offset,
+                    # query=torch.linspace(0, 1., DAM_config['n_ref_points']),
+                    nhidden= DAM_config['output_dims'],
+                    embed_time=DAM_config['d_time_emb'],
+                    num_heads=DAM_config['num_heads'],
+                    learn_emb=False,
+                    freq=10,
+                    device=self.device
+                )
+                self.d_out_dam = DAM_config['output_dims']
+            else:
+                raise NotImplementedError(f"DAM type'{DAM_config['type']} is not implemented.")
 
         if demo_config:
 
@@ -840,13 +894,14 @@ class TEEDAM(nn.Module):
         """
         non_pad_mask = get_non_pad_mask(
             event_type)  # [B,L,1] 0 for padded elements
-        
-        
 
 
         enc = []
 
         if hasattr(self, 'TE'):
+            # print(non_pad_mask.shape)
+            # print(event_type.shape)
+            # print(event_time.shape)
             self.event_enc = self.TE(event_type, event_time, non_pad_mask)
             # x = x + torch.randn_like(x)*0 # [B,L,nosie_size]
             enc.append(self.event_enc)
@@ -863,7 +918,6 @@ class TEEDAM(nn.Module):
             # r_enc = self.DAM(state_time, state_val, state_mark, non_pad_mask)
             r_enc = self.DAM(state_data, non_pad_mask_state,
                              verbose=verbose)  # [B,P, m*d_phi]
-
             # temp = r_enc.sum(-1)#+(1-non_pad_mask_state.squeeze(-1))
             # a = (temp!=0).sum()/non_pad_mask_state.sum()
             if len(r_enc.shape) == 3:   # online scenario
@@ -874,7 +928,6 @@ class TEEDAM(nn.Module):
                 r_enc_red = r_enc[:, None, :].repeat(1, event_time.shape[1], 1)
             # temp = r_enc_red.sum(-1)#+(1-non_pad_mask_state.squeeze(-1))
             # b = (temp!=0).sum()/non_pad_mask.sum()
-
             enc.append(r_enc_red)
 
         if self.add_noise:
@@ -891,9 +944,9 @@ class TEEDAM(nn.Module):
             demo_enc = self.demo_encoder(
                 state_data[-1], 1)[:, None, :].repeat(1, event_time.shape[1], 1)
             enc.append(demo_enc)
+            # print(demo_enc.shape)
 
         enc = torch.cat(enc, dim=-1)
-
         # Outputs
         if hasattr(self, 'pred_next_time'):
             # [B,L,1] <- [B,L,d_mark]

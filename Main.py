@@ -37,6 +37,8 @@ from sklearn.manifold import TSNE
 import seaborn as sns
 import statistics
 
+from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
+
 # Project is specified by <entity/project-name>
 def dl_runs(all_runs, selected_tag=None):
     print(f"There are totally {len(all_runs)} runs.")
@@ -901,6 +903,8 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
 def options():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('-seed', default=47)
+
     # Data args
     parser.add_argument(
         '-data', default="C:/DATA/data/processed/physio2019_1d_HP_std/", required=False)
@@ -971,6 +975,7 @@ def options():
     parser.add_argument('-time_enc', type=str, choices=[
                         'sum', 'concat', 'none'], default='concat', help='strategy for time encoding')
     # TEE config
+    parser.add_argument('--te_type', type=str, choices=['THP', 'AttNHP'], default='THP', help="type of TEE")
     parser.add_argument('--te_d_mark', type=int, default=64, help="encoding dimension of TEE")
     parser.add_argument('--te_d_time', type=int, default=8, help="time encoding dimension of TEE. should be the same as te_d_mark if strategy is sum")
 
@@ -983,7 +988,7 @@ def options():
     parser.add_argument('--te_dropout', type=float, default=0.1, help="dropout in TEE")
 
     # DAM config
-
+    parser.add_argument('--dam_type', type=str, choices=['SeFT', 'mTAN'], default='SeFT', help="type of TEE")
     parser.add_argument('--dam_output_activation', type=str, default='relu')
     parser.add_argument('--dam_output_dims', type=int, default=16)
     parser.add_argument('--dam_n_phi_layers', type=int, default=3)
@@ -1311,6 +1316,7 @@ def config(opt, justLoad=False):
         opt.TE_config['d_k'] = opt.te_d_k
         opt.TE_config['d_v'] = opt.te_d_v
         opt.TE_config['dropout'] = opt.te_dropout
+        opt.TE_config['type'] = opt.te_type
 
     opt.DAM_config = {}
     if opt.state:
@@ -1430,6 +1436,14 @@ def config(opt, justLoad=False):
 
         opt.DAM_config['num_mods'] = opt.num_states
         opt.DAM_config['num_demos'] = opt.num_demos
+
+        opt.DAM_config['type'] = opt.dam_type
+
+        ## mTAN
+        opt.DAM_config['num_heads'] = 4
+        opt.DAM_config['n_ref_points'] = 64
+        opt.DAM_config['n_hidden'] = 16
+        opt.DAM_config['d_time_emb'] = 8
 
     opt.NOISE_config = {}
     if opt.noise:
@@ -1614,6 +1628,8 @@ def cluster(model, data, opt):
     np.savez(f"./temp_model/{opt.user_prefix}/data/full_idcode.npz", full_idcodes)
     np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
 
+    assert 0
+    
     # clusters
     cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device, opt.user_prefix)
     label = cluster.cluster()
@@ -1656,7 +1672,7 @@ def main():
 
     print(opt.device)
 
-    torch.manual_seed(2024)
+    torch.manual_seed(opt.seed)
 
     if opt.wandb:
         wandb.login()
@@ -1738,8 +1754,18 @@ def main():
     if opt.lr_scheduler == 'StepLR':
         scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
     elif opt.lr_scheduler == 'CosineAnnealingLR':
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=10, eta_min=1e-10)
+        # scheduler = optim.lr_scheduler.CosineAnnealingLR(
+        #     optimizer, T_max=10, eta_min=1e-10)
+        # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        #     optimizer, T_0=20, T_mult=1, eta_min=1e-10
+        # )
+        scheduler = CosineAnnealingWarmupRestarts(optimizer,
+                                          first_cycle_steps=20,
+                                          cycle_mult=1.0,
+                                          max_lr=opt.lr,
+                                          min_lr=1e-10,
+                                          warmup_steps=5,
+                                          gamma=0.8)
 
     """ number of parameters """
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
