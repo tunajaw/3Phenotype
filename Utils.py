@@ -1078,12 +1078,13 @@ def state_label_loss(state_label, prediction, non_pad_mask, loss_fun, cuda=True,
     # print(f"prediction shape: {prediction.shape}")
     # print(f"non_pad_mask: {non_pad_mask.shape}")
     # [TOCHECK]: variable-length tensor: might * non_pad_mask?
-
     if num_classes <= 0:
         raise ValueError(f"num_classes {num_classes} should be not less than 1.")
     
+    
     # binary classfication
-    elif num_classes == 1:
+    #[TODO] Harsh!
+    elif num_classes < 1:
         if pred_last:
             lens = non_pad_mask.squeeze(-1).sum(-1).long()
             predictions = prediction[np.arange(prediction.shape[0])   ,  lens-1,   :] #[B,1]

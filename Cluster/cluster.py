@@ -102,7 +102,7 @@ class Cluster:
         path = (1 - t) * x1[:, np.newaxis, :] + t * x2[:, np.newaxis, :]
         return path
 
-    def _batch_path_test(self, x1, x2, num=50):
+    def _batch_path_test(self, x1, x2, num=2):
         # x1: batch_size x x_dim
         # x2: batch_size x x_dim
         # paths: batch_size x self.test_num x x_dim

@@ -271,6 +271,7 @@ def prepare_dataloader(opt):
     state_args = {'have_label': opt.sample_label, 'have_demo': opt.demo}
 
     # additionals = {'cx_time': additional_info['cx_time']} if opt.dataset == 'event' else {}
+    state_args["label_in_state"] = opt.dataset != 'event'
 
     trainloader = get_dataloader(train_data, data_state=train_state, bs=opt.batch_size, shuffle=True,
                                   data_label=opt.data_label, balanced=opt.balanced_batch, state_args=state_args, additionals=train_additionals)
@@ -356,9 +357,12 @@ def train_epoch(model, training_data, optimizer, pred_loss_func, opt):
         if hasattr(model, 'pred_label'):
             
             # try to get the closet event time label from state label 
-            # non_pad_mask = non_pad_mask * sample_event_mask
 
-            state_label_red = state_label[:, :, None]
+            if opt.dataset != 'event':
+                state_label_red = align(
+                    state_label[:, :, None], event_time, state_time)  # [B,L,1]
+            else:
+                state_label_red = state_label[:, :, None]
             # state_label_red = align(
             #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
             
@@ -524,13 +528,13 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
 
             # label prediction
             if hasattr(model, 'pred_label') and (state_label is not None):
-
-                # state_label_red = align(
-                #     state_label[:, :, None], event_time, state_time)  # [B,L,1]
-                # non_pad_mask = non_pad_mask * sample_event_mask
-
-                state_label_red = state_label[:, :, None]
                 
+                #[TODO] add a variable to control label in state or not
+                if opt.dataset != 'event':
+                    state_label_red = align(
+                        state_label[:, :, None], event_time, state_time)  # [B,L,1]
+                else:
+                    state_label_red = state_label[:, :, None]
                 # state_label_red = state_label.bool().int()[:,:,None] # [B,L,1]
                 state_label_loss, (y_state_pred, y_state_true, y_state_score) = Utils.state_label_loss(
                     state_label_red, model.y_label, non_pad_mask, opt.label_loss_fun, opt.cuda, num_classes=opt.label_class)
@@ -700,13 +704,14 @@ def valid_epoch(model, validation_data, pred_loss_func, opt):
         # plt.xlabel('Recall')
         # plt.ylabel('Precision')
 
-        # print(f"y_state_pred shape:{y_state_pred.shape}")
-        # print(f"y_state_true shape:{y_state_true.shape}")
-        # print(f"y_state_score shape:{y_state_score.shape}")
+        if opt.label_class == 1:
+            y_state_score_full = y_state_score[:, 1]
+        else:
+            y_state_score_full = y_state_score
 
         dict_metrics.update({
-            'pred_label/AUROC': metrics.roc_auc_score(y_state_true, y_state_score, multi_class='ovo'),
-            'pred_label/AUPRC': metrics.average_precision_score(y_state_true, y_state_score, average='macro'),
+            'pred_label/AUROC': metrics.roc_auc_score(y_state_true, y_state_score_full, multi_class='ovo'),
+            'pred_label/AUPRC': metrics.average_precision_score(y_state_true, y_state_score_full, average='macro'),
             'pred_label/f1-macro': metrics.f1_score(y_state_true, y_state_pred, average='macro', zero_division=0),
             'pred_label/recall-macro': metrics.recall_score(y_state_true, y_state_pred, average='macro', zero_division=0),
             'pred_label/precision-macro': metrics.precision_score(y_state_true, y_state_pred, average='macro', zero_division=0),
@@ -896,7 +901,7 @@ def train(model, trainloader, validloader, testloader, optimizer, scheduler, pre
 
           
     # Save the model weights
-    torch.save(model.state_dict(), f"{opt.user_prefix}.pth")
+    torch.save(model.state_dict(), f"model_save/cls_model.pth")
     return best_metric
 
 
@@ -1295,7 +1300,8 @@ def config(opt, justLoad=False):
 
     
     opt.w_pos_label = torch.tensor([float(w) for w in opt.w_pos_label], device=opt.device)
-    if opt.label_class == 1:
+    #[TODO] Harsh!
+    if opt.label_class < 1:
         opt.label_loss_fun = nn.BCEWithLogitsLoss(
             reduction='none', pos_weight=torch.tensor(opt.w_pos_label, device=opt.device))
     else:
@@ -1627,8 +1633,6 @@ def cluster(model, data, opt):
     np.savez(f"./temp_model/{opt.user_prefix}/data/idcode.npz", idcodes)
     np.savez(f"./temp_model/{opt.user_prefix}/data/full_idcode.npz", full_idcodes)
     np.savez(f"./temp_model/{opt.user_prefix}/data/x_corpus.npz", torch.cat(x_corpus, 0).cpu().numpy())
-
-    assert 0
     
     # clusters
     cluster = Cluster(torch.cat(x_corpus, 0).cpu().numpy(), torch.cat(z_corpus, 0).cpu().numpy(), model.pred_label, opt.K, opt.device, opt.user_prefix)
@@ -1773,7 +1777,7 @@ def main():
 
     wandb.log({'num_params': num_params})
     
-    """ train the model """    
+    """ train the model """   
     train(model, opt.trainloader, opt.validloader,
                             opt.testloader, optimizer, scheduler, opt.pred_loss_func, opt, None)
     

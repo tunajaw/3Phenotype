@@ -841,12 +841,12 @@ class TEEDAM(nn.Module):
 
         # sample final label ************************************************************
         if label_config:
-            if label_config['label_class'] == 1:
-                self.pred_label = Predictor(self.d_con, label_config['label_class'])
-            else:
-                # self.pred_label = Predictor(self.d_con, label_config['label_class']+1)
-                self.pred_label = MLP(self.d_con, label_config['label_class']+1, 20, 4)
-
+            # if label_config['label_class'] == 1:
+            #     self.pred_label = Predictor(self.d_con, label_config['label_class'])
+            # else:
+            #     # self.pred_label = Predictor(self.d_con, label_config['label_class']+1)
+            #     self.pred_label = MLP(self.d_con, label_config['label_class']+1, 20, 4)
+            self.pred_label = MLP(self.d_con, label_config['label_class']+1, 20, 4)
             self.sample_detach = label_config['sample_detach']
 
         # Prediction of next time and type ***************************

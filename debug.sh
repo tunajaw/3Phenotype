@@ -9,8 +9,8 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON=" -demo -data_label multilabel -epoch 140 -per 100 -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 0 -ES_pat 100 -wandb -wandb_project TEEDAM_debug "
-HPs="-batch_size 16 -lr 0.001 -weight_decay 0.1 -w_pos_label 0.01522564 0.36339237 0.21814051 0.94168525 3.02247956 1.97214451 0.46693216"
+COMMON=" -demo -data_label multilabel -epoch 140 -per 100 -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 0 -ES_pat 100 -wandb -wandb_project TEEDAM_THP-SeFT "
+HPs="-batch_size 16 -lr 0.001 -weight_decay 0.1 -w_pos_label 0.10206294 0.34780188 0.13642752 1.16843034 2.07644497 2.56515121 0.60368114"
 
 # sanc : 0.01522564 0.36339237 0.21814051 0.94168525 3.02247956 1.97214451 0.46693216
 
@@ -60,7 +60,7 @@ EXPER="-use_TE_to_decode 1"
 # for different splits (raindrop-same splits as raindro's paper)    
 for i_split in {0..0}
 do
-    SETTING=" -data  $PRE/$DATA_NAME/ -split $i_split --te_d_mark 64 --dam_output_dims 16" 
+    SETTING=" -data  $PRE/$DATA_NAME/ -split $i_split --te_d_mark 256 --dam_output_dims 16" 
 
         echo "first split #$i_split" 
 
@@ -105,19 +105,19 @@ do
         ############### M0 #####################
 
         echo "TEE+DAM (MLplus)"            
-        python Main.py  -seed 8223 $ENCODER_M1 $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "AttNHP(256)/mTAN(16)-" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug-1.log 2>&1
+        python Main.py  -seed 8223 $ENCODER_ORG $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "THP(128)-SeFT(16)" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug-1.log 2>&1
 
-        # echo "TEE+DAM (MLplus)"            
-        # python Main.py  -seed 48763 $ENCODER_M1 $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "AttNHP(256)/mTAN(16)-" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
+        echo "TEE+DAM (MLplus)"            
+        python Main.py  -seed 48763 $ENCODER_ORG $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "THP(128)-SeFT(16)" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
 
-        # echo "TEE+DAM (MLplus)"            
-        # python Main.py  -seed 888 $ENCODER_M1 $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "AttNHP(256)/mTAN(16)-" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
+        echo "TEE+DAM (MLplus)"            
+        python Main.py  -seed 888 $ENCODER_ORG $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "THP(128)-SeFT(16)" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
 
-        # echo "TEE+DAM (MLplus)"            
-        # python Main.py  -seed 987 $ENCODER_M1 $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "AttNHP(256)/mTAN(16)-" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
+        echo "TEE+DAM (MLplus)"            
+        python Main.py  -seed 987 $ENCODER_ORG $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "THP(128)-SeFT(16)" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
 
-        # echo "TEE+DAM (MLplus)"            
-        # python Main.py  -seed 114514 $ENCODER_M1 $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "AttNHP(256)/mTAN(16)-" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
+        echo "TEE+DAM (MLplus)"            
+        python Main.py  -seed 114514 $ENCODER_ORG $HPs $COEFS $SETTING $COMMON $TEDA__pp_ml_plus -user_prefix "THP(128)-SeFT(16)" -time_enc concat -wandb_tag RD75 > logs/Supervised/debug.log 2>&1
 
         # # TEDA__pp_single_mark (TEE+DAM (single) in Table 5)     
         # echo "TEE+DAM (single)"                   

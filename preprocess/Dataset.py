@@ -13,7 +13,7 @@ import random
 class TEDA(torch.utils.data.Dataset):
     """ Event stream dataset. """
 
-    def __init__(self, data_event, dict_state=None, dim='MHP', data_label='multiclass', have_label=False, have_demo=False, idcode_in_demo=False, additionals=None):
+    def __init__(self, data_event, dict_state=None, dim='MHP', data_label='multiclass', have_label=False, have_demo=False, label_in_state=True, idcode_in_demo=False, additionals=None):
         """
         Data should be a list of event streams; each event stream is a list of dictionaries;
         each dictionary contains: time_since_start, time_since_last_event, type_event
@@ -22,6 +22,7 @@ class TEDA(torch.utils.data.Dataset):
         self.have_label=have_label
         self.have_demo=have_demo
         self.have_state = False # will change later
+        self.label_in_state = label_in_state
         self.idcode_in_demo = idcode_in_demo
 
         self.time = [[elem['time_since_start'] for elem in inst] for inst in data_event]
@@ -47,7 +48,11 @@ class TEDA(torch.utils.data.Dataset):
             
 
         if self.have_label:   
-            self.label = [[elem['label'] for elem in inst] for inst in data_event]
+            #[TODO]: add a variable to control the position of the label
+            if not self.label_in_state:
+                self.label = [[elem['label'] for elem in inst] for inst in data_event]
+            else:
+                self.label = [[elem['label'] for elem in inst] for inst in dict_state['state']]
             #[TODO] revise the sample label 
             # self.whole_label = [(sum([elem['label'] for elem in inst])>0)+0 for inst in data_event]
 

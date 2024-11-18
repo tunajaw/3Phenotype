@@ -9,12 +9,12 @@ PRE="./dataset"
 DATA_NAME="event"
 
 # hyperparameters. Use `python Main.py -h` for more information
-COMMON=" -demo -data_label multilabel -epoch 140 -per 100 -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 0 -ES_pat 100 -wandb -wandb_project TEEDAM_supervised "
-HPs="-batch_size 16 -lr 0.0001 -weight_decay 0.1 -w_pos_label 0.01522564 0.36339237 0.21814051 0.94168525 3.02247956 1.97214451 0.46693216"
+COMMON=" -demo -data_label multilabel -epoch 140 -per 100 -label_class 6 -K 7 -cluster 0 -sample_gap 90 -draw_plt 0 -ES_pat 100 -wandb -wandb_project TEEDAM_THP-SeFT"
+HPs="-batch_size 16 -lr 0.0001 -weight_decay 0.1 -w_pos_label 0.10206294 0.34780188 0.13642752 1.16843034 2.07644497 2.56515121 0.60368114"
 
 # sanc : 0.01522564 0.36339237 0.21814051 0.94168525 3.02247956 1.97214451 0.46693216
 
-# inverse: 0.0141619  0.40760237 0.09645988 1.8442039  1.73344863 2.31126484
+# inverse: 0.0141619  0.40760237 0.09645988 1.8442039  1.73344863 2.31126484 
 
 # beta=0.99995: 0.10206294 0.34780188 0.13642752 1.16843034 2.07644497 2.56515121 0.60368114
 
@@ -53,7 +53,7 @@ TE__pp_single_mark="-event_enc 1      -mod single    -next_mark 1     -mark_deta
 # DAM + TEE with PP(single) and label loss(equation 4 in the paper)
 TEDA__pp_ml_plus="-event_enc 1    -state          -mod ml_plus    -next_mark 1     -mark_detach 0      -sample_label 1"
 
-EXPER="-use_TE_to_decode 1"
+EXPER="-use_TE_to_decode 0 --te_d_mark 64 --dam_output_dims 16"
 
 
 # for different splits (raindrop-same splits as raindro's paper)    
