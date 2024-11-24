@@ -46,8 +46,9 @@ class multiTimeAttention(nn.Module):
             # Same mask applied to all h heads.
             mask = mask.unsqueeze(1)
         value = value.unsqueeze(1)
-        # print(f"before: {query.shape}, {key.shape}")
-        # print(f"{self.linears[0](query).shape}, {self.linears[1](key).shape}")
+        print(f"before: {query.shape}, {key.shape}")
+        print(f"{self.linears[1](key).shape}")
+        print(f"{self.linears[0](query).shape}")
         query, key = [l(x).view(x.size(0), -1, self.h, self.embed_time_k).transpose(1, 2)
                       for l, x in zip(self.linears, (query, key))]
         # print(f"after: {query.shape}, {key.shape}")
@@ -161,55 +162,61 @@ class mTAN_Enc(nn.Module):
         pe[:, :, 1::2] = torch.cos(position * div_term)
         return pe
     
-    def get_subsequent_mask(self, seq, diag_offset=1):
-        """ For masking out the subsequent info, i.e., masked self-attention. """
-        if seq.dim() == 2:
-            sz_b, len_s = seq.size()
-        else:
-            sz_b, len_s, dim = seq.size()
-        subsequent_mask = torch.tril(
-            torch.ones((len_s, len_s), device=seq.device, dtype=torch.uint8), diagonal=diag_offset)
-        subsequent_mask = subsequent_mask.unsqueeze(
-            0).expand(sz_b, -1, -1)  # b x ls x ls
-        return subsequent_mask
+    # def get_subsequent_mask(self, seq, diag_offset=1):
+    #     """ For masking out the subsequent info, i.e., masked self-attention. """
+    #     if seq.dim() == 2:
+    #         sz_b, len_s = seq.size()
+    #     else:
+    #         sz_b, len_s, dim = seq.size()
+    #     subsequent_mask = torch.tril(
+    #         torch.ones((len_s, len_s), device=seq.device, dtype=torch.uint8), diagonal=diag_offset)
+    #     subsequent_mask = subsequent_mask.unsqueeze(
+    #         0).expand(sz_b, -1, -1)  # b x ls x ls
+    #     return subsequent_mask
     
-    # def get_att_mask(self, qt, kt):
-    #     '''
-    #     generate attention mask to avoid seeing future events at reference points t.
+    def get_att_mask(self, qt, kt):
+        '''
+        generate attention mask to avoid seeing future events at reference points t.
 
-    #     inputs:
-    #         qt: reference points, shape (R, )
-    #         kt: time steps, shape (B, L)
+        inputs:
+            qt: reference points, shape (B, R)
+            kt: time steps, shape (B, L)
 
-    #     output: 
-    #         tril matrix, shape (B, R, L)
-    #     '''
-    #     qt = qt.unsqueeze(0)  # Shape: [nq, 1]
-    #     return (qt.unsqueeze(2) >= kt.unsqueeze(1)).int()  # Shape: [B, nq, nk]
+        output: 
+            tril matrix, shape (B, R, L)
+        '''
+        return (qt.unsqueeze(2) >= kt.unsqueeze(1)).int()  # Shape: [B, nq, nk]
     
        
-    def forward(self, data, mask, verbose=None):
+    def forward(self, data, mask, qtime, verbose=None):
         '''
         data: [time, val, mark]
         mask: non_pad_mask
+        qtime: [time, val, mark]
         '''
         # ignore demo data here
         time_steps, val, mark, _ = data
         # transform mark into corresponding dimension
         _, val, mask = self.transform_to_3d_ts(time_steps, val, mark, mask, self.device)
 
+
+        print(time_steps.shape, val.shape, mark.shape, mask.shape, qtime.shape)
+
         # print(f"original:{self.query.shape}, {time_steps.shape}")
         # time_steps = time_steps.cpu()
         # mask = torch.cat((mask, mask), 2)
         if self.learn_emb:
+            query = self.learn_time_embedding(qtime).to(self.device)
             key = self.learn_time_embedding(time_steps).to(self.device)
         else:
+            query = self.time_embedding(qtime, self.embed_time).to(self.device)
             key = self.time_embedding(time_steps, self.embed_time).to(self.device)
 
-        # att_mask = self.get_att_mask(self.query, time_steps)
-        att_mask = self.get_subsequent_mask(time_steps, self.w)
+        att_mask = self.get_att_mask(qtime, time_steps)
+        print(f"att mask: {att_mask}")
+        # att_mask = self.get_subsequent_mask(time_steps, self.w)
         
-        out = self.att(key, key, val, mask, att_mask)
+        out = self.att(query, key, val, mask, att_mask)
         out = out.permute(1, 0, 2)
         out, _ = self.enc(out) # shape: [L, B, hidden]
         out = out.permute(1, 0, 2)

@@ -538,6 +538,7 @@ class DeepAttensionModule(nn.Module):
                 # state_time, state_val, state_mark,
                 state_data,
                 non_pad_mask,
+                qtime,
                 verbose=False,
                 demo=None
 
@@ -903,6 +904,7 @@ class TEEDAM(nn.Module):
             # print(event_type.shape)
             # print(event_time.shape)
             self.event_enc = self.TE(event_type, event_time, non_pad_mask)
+            print(f"TE shape: {self.event_enc.shape}")
             # x = x + torch.randn_like(x)*0 # [B,L,nosie_size]
             enc.append(self.event_enc)
 
@@ -916,10 +918,12 @@ class TEEDAM(nn.Module):
         if hasattr(self, 'DAM'):
             non_pad_mask_state = get_non_pad_mask(state_data[0])  # [B,P,1]
             # r_enc = self.DAM(state_time, state_val, state_mark, non_pad_mask)
-            r_enc = self.DAM(state_data, non_pad_mask_state,
+            r_enc = self.DAM(state_data, non_pad_mask_state, event_time,
                              verbose=verbose)  # [B,P, m*d_phi]
             # temp = r_enc.sum(-1)#+(1-non_pad_mask_state.squeeze(-1))
             # a = (temp!=0).sum()/non_pad_mask_state.sum()
+            print(f"DAM output shape: {r_enc.shape}")
+            assert 0
             if len(r_enc.shape) == 3:   # online scenario
                 r_enc_red = align(r_enc, event_time,
                                   state_data[0])  # [B,L, m*d_phi]
